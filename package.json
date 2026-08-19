@@ -1,0 +1,30 @@
+{
+  "name": "pinterest-plus-plus",
+  "version": "1.0.5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "wxt prepare",
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "icons": "node scripts/generate-icons.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.2.2",
+    "jsdom": "28.1.0",
+    "sharp": "0.35.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "wxt": "0.20.27"
+  },
+  "overrides": {
+    "esbuild": "0.28.1",
+    "shell-quote": "1.8.4",
+    "tmp": "0.2.7",
+    "uuid": "11.1.1"
+  }
+}
