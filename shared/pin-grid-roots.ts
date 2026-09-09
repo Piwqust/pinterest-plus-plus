@@ -1,4 +1,8 @@
 export const PIN_SELECTOR = '[data-test-id="pinWrapper"]';
+/** Board/profile pages use a simplified pin card without menus or metadata. */
+export const GATED_PIN_SELECTOR = '[data-test-id="gated-pin-rep"]';
+/** Combined selector matching any pin card variant the extension decorates. */
+export const ANY_PIN_SELECTOR = `${PIN_SELECTOR}, ${GATED_PIN_SELECTOR}`;
 export const MAX_SCANNED_PINS = 400;
 /**
  * Pins a container must hold to count as a grid. Large tiles mean Pinterest's
@@ -9,7 +13,7 @@ export const MIN_ROOT_PINS = 2;
 
 export function containsPin(node: Node): boolean {
   return node instanceof HTMLElement &&
-    (node.matches(PIN_SELECTOR) || Boolean(node.querySelector(PIN_SELECTOR)));
+    (node.matches(ANY_PIN_SELECTOR) || Boolean(node.querySelector(ANY_PIN_SELECTOR)));
 }
 
 /**
@@ -17,7 +21,7 @@ export function containsPin(node: Node): boolean {
  * the head and tail are enough to locate every mounted grid.
  */
 export function samplePins(doc: Document | ParentNode): HTMLElement[] {
-  const pins = Array.from(doc.querySelectorAll<HTMLElement>(PIN_SELECTOR));
+  const pins = Array.from(doc.querySelectorAll<HTMLElement>(ANY_PIN_SELECTOR));
   if (pins.length <= MAX_SCANNED_PINS) return pins;
   return [...pins.slice(0, MAX_SCANNED_PINS / 2), ...pins.slice(-MAX_SCANNED_PINS / 2)];
 }
@@ -37,7 +41,7 @@ export function findPinGridRootsFrom(
   const countPins = (element: HTMLElement): number => {
     const cached = pinCountCache.get(element);
     if (cached !== undefined) return cached;
-    const count = element.querySelectorAll(PIN_SELECTOR).length;
+    const count = element.querySelectorAll(ANY_PIN_SELECTOR).length;
     pinCountCache.set(element, count);
     return count;
   };

@@ -1,6 +1,6 @@
-import type { ActionResponse, ExtensionMessage, OffscreenCopyMessage } from '../shared/messages';
+import type { ActionResponse, ExtensionMessage, MediaKind, OffscreenCopyMessage } from '../shared/messages';
 import { withTimeout } from '../shared/async';
-import { isAllowedMediaUrl, isDownloadableVideoUrl, safeFilename } from '../shared/media';
+import { isAllowedMediaUrl, isDownloadableVideoUrl, isMediaResponse, safeFilename } from '../shared/media';
 
 const OFFSCREEN_PATH = 'offscreen.html';
 const MAX_CANDIDATES = 16;
@@ -64,7 +64,7 @@ function requestedTitle(suggestedName: string): string {
   return basename.replace(/\.[^.]+$/, '');
 }
 
-async function isVerifiedVideoFile(candidate: string, deadline: number): Promise<boolean> {
+async function isVerifiedMediaFile(candidate: string, kind: MediaKind, deadline: number): Promise<boolean> {
   const remaining = deadline - Date.now();
   if (remaining <= 0) return false;
 
@@ -78,10 +78,7 @@ async function isVerifiedVideoFile(candidate: string, deadline: number): Promise
       signal: controller.signal,
     });
     await response.body?.cancel();
-    const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
-    // An unpublished rendition answers 403 with an XML body, so the status and
-    // the type both have to agree before the file reaches Chrome's downloads.
-    return response.ok && (contentType.startsWith('video/') || contentType.includes('octet-stream'));
+    return isMediaResponse(response.status, response.headers.get('content-type'), kind);
   } catch {
     return false;
   } finally {
@@ -97,9 +94,11 @@ async function downloadMedia(message: Extract<ExtensionMessage, { type: 'DOWNLOA
   const deadline = Date.now() + VERIFY_BUDGET_MS;
   for (const candidate of candidates) {
     try {
-      // Candidate order remains highest quality first. Verify that a selected
-      // video is media before handing it to Chrome's download manager.
-      if (message.kind === 'video' && !(await isVerifiedVideoFile(candidate, deadline))) continue;
+      // Candidate order remains highest quality first. A route Pinterest never
+      // published answers with an error body rather than a file, and Chrome's
+      // download manager would save that body as an .xml file next to the
+      // user's images, so every candidate is confirmed to be media first.
+      if (!(await isVerifiedMediaFile(candidate, message.kind, deadline))) continue;
       const filename = safeFilename(candidate, message.kind, requestedTitle(message.suggestedName));
       await chrome.downloads.download({ url: candidate, filename, conflictAction: 'uniquify', saveAs: false });
       return { ok: true, message: 'Download started' };
@@ -111,7 +110,7 @@ async function downloadMedia(message: Extract<ExtensionMessage, { type: 'DOWNLOA
     ok: false,
     message: message.kind === 'video'
       ? 'Pinterest did not provide a direct video file for this item'
-      : 'Pinterest blocked this download',
+      : 'Pinterest did not serve a downloadable image file for this item',
   };
 }
 

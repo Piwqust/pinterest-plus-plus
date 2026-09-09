@@ -3,7 +3,7 @@ import {
   GRID_SET_WIDTH_EVENT,
   type GridSetWidthDetail,
 } from './grid-bridge-events';
-import { PIN_SELECTOR, containsPin, findPinGridRootsFrom, samplePins } from './pin-grid-roots';
+import { ANY_PIN_SELECTOR, containsPin, findPinGridRootsFrom, samplePins } from './pin-grid-roots';
 import { DEFAULT_TILE_WIDTH, clampTileWidth } from './settings';
 
 export class GridResizer {
@@ -60,9 +60,9 @@ export class GridResizer {
 
       for (const node of record.addedNodes) {
         if (!(node instanceof HTMLElement) || node.closest('[data-ppp-ignore="true"]')) continue;
-        const pins = node.matches(PIN_SELECTOR)
+        const pins = node.matches(ANY_PIN_SELECTOR)
           ? [node]
-          : Array.from(node.querySelectorAll<HTMLElement>(PIN_SELECTOR));
+          : Array.from(node.querySelectorAll<HTMLElement>(ANY_PIN_SELECTOR));
         if (pins.some((pin) => !roots.some((root) => root.contains(pin)))) {
           this.queueScan();
           return;

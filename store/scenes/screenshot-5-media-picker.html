@@ -1,0 +1,289 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8" />
+<title>Carousels open a picker — choose the slide to copy or save</title>
+<style>
+  .ppp-root {
+    all: initial;
+    --ppp-ink: #2f2f2e;
+    --ppp-muted: #787774;
+    --ppp-subtle: #f7f6f3;
+    --ppp-surface: #ffffff;
+    --ppp-border: #eaeaea;
+    --ppp-accent: #9f2f2d;
+    --ppp-accent-soft: #fdebec;
+    --ppp-focus: rgba(159, 47, 45, .3);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  .ppp-layer {
+    position: fixed; inset: 0; z-index: 2147483646; pointer-events: none;
+    color: var(--ppp-ink); font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Helvetica Neue", Arial, sans-serif;
+  }
+  button, input { font: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  .ppp-pin-actions {
+    display: inline-flex; align-items: center; gap: 6px; margin-right: 2px; padding: 0; line-height: 0; vertical-align: middle;
+    background: transparent;
+  }
+  .ppp-action {
+    appearance: none; position: relative; isolation: isolate; width: 28px; height: 28px; min-width: 28px; margin: 0; padding: 0; border: 0; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ppp-ink); background: transparent; cursor: pointer;
+    transition: color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out;
+  }
+  .ppp-action::before {
+    position: absolute; inset: 0; z-index: -1; border-radius: inherit; content: "";
+    background: rgba(0, 0, 0, .07); opacity: 0; transform: none;
+    transition: opacity 140ms ease-out;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .ppp-action:hover::before { opacity: 1; }
+    .ppp-action:hover { color: var(--ppp-ink); }
+  }
+  .ppp-action:active { transform: scale(.97); }
+  .ppp-action:active::before { opacity: 1; }
+  .ppp-action:focus-visible { outline: 2px solid var(--ppp-focus); outline-offset: 2px; }
+  .ppp-action:disabled { cursor: wait; opacity: .58; }
+  .ppp-action svg, .ppp-reset svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ppp-action span { display: none; }
+  /* The close-up's action bar is built from larger controls than a grid tile's. */
+  .ppp-pin-actions[data-scope="closeup"] { gap: 4px; margin-right: 0; }
+  .ppp-pin-actions[data-scope="closeup"] .ppp-action { width: 40px; height: 40px; min-width: 40px; }
+  .ppp-pin-actions[data-scope="closeup"] .ppp-action svg { width: 21px; height: 21px; }
+  .ppp-grid-shell {
+    position: fixed; right: 14px; bottom: 14px; pointer-events: auto;
+    opacity: .7; transition: opacity 140ms ease-out;
+  }
+  .ppp-grid-shell:hover, .ppp-grid-shell:focus-within,
+  .ppp-grid-shell:has(.ppp-grid-panel[aria-busy="true"]),
+  .ppp-grid-shell:has(.ppp-grid-status[data-visible="true"]) { opacity: 1; }
+  .ppp-grid-panel {
+    width: 196px; padding: 4px 8px 6px; border: 1px solid var(--ppp-border); border-radius: 9px;
+    display: grid; row-gap: 2px; background: var(--ppp-surface); pointer-events: auto;
+  }
+  .ppp-picker-eyebrow { color: var(--ppp-muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .ppp-grid-foot { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; column-gap: 2px; }
+  .ppp-grid-value { padding: 0 2px; color: var(--ppp-muted); background: transparent; font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.02em; text-align: center; white-space: nowrap; }
+  .ppp-range-row { display: block; min-width: 0; }
+  .ppp-range { appearance: none; display: block; width: 100%; height: 22px; margin: 0; border: 0; background: transparent; cursor: ew-resize; -webkit-appearance: none; }
+  .ppp-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--ppp-border); }
+  .ppp-range::-webkit-slider-thumb { width: 13px; height: 13px; margin-top: -4.5px; border: 2px solid var(--ppp-surface); border-radius: 50%; background: var(--ppp-ink); box-shadow: 0 0 0 1px var(--ppp-border); -webkit-appearance: none; }
+  .ppp-range:disabled { cursor: not-allowed; opacity: .52; }
+  .ppp-grid-status { display: none; margin: 2px 0 2px; padding: 6px 7px; border: 1px solid #f1d5d6; border-radius: 6px; color: var(--ppp-accent); background: var(--ppp-accent-soft); font-size: 11px; font-weight: 600; line-height: 1.3; }
+  .ppp-grid-status[data-visible="true"] { display: block; }
+  .ppp-reset, .ppp-step {
+    appearance: none; width: 22px; height: 22px; margin: 0; padding: 0; border: 0; border-radius: 5px; display: grid; place-items: center;
+    color: var(--ppp-muted); background: transparent; cursor: pointer; transition: background 140ms ease-out, color 140ms ease-out, transform 140ms ease-out;
+  }
+  .ppp-reset svg { width: 12px; height: 12px; }
+  .ppp-step svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+  .ppp-reset span, .ppp-step span { display: none; }
+  .ppp-reset:hover, .ppp-step:hover:not(:disabled) { color: var(--ppp-ink); background: var(--ppp-subtle); }
+  .ppp-reset:active, .ppp-step:active:not(:disabled) { transform: scale(.94); }
+  .ppp-step:disabled { cursor: default; opacity: .3; }
+  .ppp-reset:focus-visible, .ppp-step:focus-visible, .ppp-range:focus-visible { outline: 2px solid var(--ppp-focus); outline-offset: 1px; }
+  .ppp-toast {
+    position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); max-width: min(420px, calc(100vw - 36px)); padding: 11px 15px;
+    border: 1px solid var(--ppp-ink); border-radius: 8px; color: #ffffff; background: var(--ppp-ink);
+    opacity: 0; transform: translate(-50%, 8px); transition: opacity 140ms ease-out, transform 180ms ease-out;
+    pointer-events: none; text-align: center;
+  }
+  .ppp-toast[data-visible="true"] { opacity: 1; transform: translate(-50%, 0); }
+  .ppp-toast[data-error="true"] { border-color: var(--ppp-accent); background: var(--ppp-accent); }
+  .ppp-media-picker {
+    position: fixed; z-index: 1; display: flex; flex-direction: column; width: min(336px, calc(100vw - 24px)); max-height: min(530px, calc(100vh - 24px)); padding: 12px;
+    border: 1px solid var(--ppp-border); border-radius: 12px; color: var(--ppp-ink); background: var(--ppp-surface); pointer-events: auto;
+  }
+  .ppp-media-picker[data-density="dense"], .ppp-media-picker[data-density="compact"] { width: min(326px, calc(100vw - 24px)); }
+  .ppp-media-picker[hidden] { display: none; }
+  .ppp-picker-header { display: flex; flex: 0 0 auto; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 1px 1px 12px; }
+  .ppp-picker-title-block { display: grid; gap: 2px; }
+  .ppp-picker-title { font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+  .ppp-picker-subtitle { color: var(--ppp-muted); font-size: 12px; font-weight: 500; line-height: 1.35; }
+  .ppp-picker-close {
+    appearance: none; width: 28px; height: 28px; margin: -1px -1px -1px 0; padding: 0; border: 1px solid var(--ppp-border); border-radius: 6px;
+    display: grid; place-items: center; color: var(--ppp-muted); background: var(--ppp-surface); cursor: pointer; transition: color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out;
+  }
+  .ppp-picker-close:hover { color: var(--ppp-ink); background: var(--ppp-subtle); }
+  .ppp-picker-close:active { transform: scale(.97); }
+  .ppp-picker-close:focus-visible, .ppp-media-option:focus-visible { outline: 2px solid var(--ppp-focus); outline-offset: 2px; }
+  .ppp-picker-close svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .ppp-picker-close span { display: none; }
+  .ppp-picker-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 2px 2px 0; scrollbar-color: #c6c5c3 transparent; scrollbar-width: thin; }
+  .ppp-picker-scroll::-webkit-scrollbar { width: 8px; }
+  .ppp-picker-scroll::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 4px; background: #c6c5c3; background-clip: padding-box; }
+  .ppp-picker-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ppp-media-picker[data-density="dense"] .ppp-picker-grid, .ppp-media-picker[data-density="compact"] .ppp-picker-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .ppp-media-option { appearance: none; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 8px; color: inherit; background: transparent; cursor: pointer; text-align: left; transition: transform 140ms ease-out; }
+  .ppp-media-option:disabled { cursor: wait; opacity: .58; }
+  .ppp-media-option:hover .ppp-media-preview-wrap { border-color: #c6c5c3; }
+  .ppp-media-option:active { transform: scale(.98); }
+  .ppp-media-preview-wrap { position: relative; display: block; overflow: hidden; border: 1px solid var(--ppp-border); border-radius: 8px; background: var(--ppp-subtle); aspect-ratio: 4 / 3; transition: border-color 140ms ease-out; }
+  .ppp-media-preview { display: block; width: 100%; height: 100%; object-fit: contain; }
+  .ppp-media-preview-fallback { display: grid; width: 100%; height: 100%; place-items: center; color: var(--ppp-muted); font-size: 12px; }
+  .ppp-media-kind { position: absolute; right: 5px; bottom: 5px; padding: 3px 5px; border-radius: 4px; color: #ffffff; background: var(--ppp-ink); font-size: 10px; font-weight: 700; line-height: 1; }
+  .ppp-media-label { display: block; overflow: hidden; margin: 5px 1px 0; font-size: 11px; font-weight: 650; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+  .ppp-media-picker[data-density="dense"] .ppp-media-preview-wrap, .ppp-media-picker[data-density="compact"] .ppp-media-preview-wrap { aspect-ratio: 1 / 1; }
+  .ppp-media-picker[data-density="compact"] .ppp-media-label { margin-top: 4px; font-size: 10px; }
+  @media (max-width: 480px) {
+    .ppp-grid-shell { right: 10px; bottom: 10px; }
+    .ppp-grid-panel { width: min(196px, calc(100vw - 20px)); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }
+
+
+  html { margin: 0; width: 1280px; height: 800px; background: #f0efe9; }
+  body { position: absolute; top: 0; left: 0; margin: 0; width: 1280px; height: 800px; overflow: hidden; background: #f0efe9; }
+  body {
+    font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Helvetica Neue", Arial, sans-serif;
+    color: #2f2f2e;
+  }
+  .caption {
+    height: 64px; display: flex; align-items: center; padding: 0 28px;
+    color: #fff; background: #2f2f2e; font-size: 22px; font-weight: 650; letter-spacing: -.02em;
+  }
+  .page { height: 736px; background: #fff; }
+  .topbar {
+    height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 22px;
+    border-bottom: 1px solid #eee;
+  }
+  .mark {
+    width: 32px; height: 32px; border-radius: 10px; background: #c4102f;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 7px;
+  }
+  .mark i { display: block; border-radius: 2px; background: #fff; }
+  .mark i:nth-child(1) { height: 14px; }
+  .mark i:nth-child(2) { height: 8px; margin-top: 6px; }
+  .mark i:nth-child(3) { height: 8px; }
+  .mark i:nth-child(4) { height: 14px; }
+  .search {
+    flex: 1; height: 40px; border: 0; border-radius: 24px; background: #efefef;
+    padding: 0 18px; color: #787774; font: 500 14px/40px inherit;
+  }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: #d9c2b0; }
+  .feed { padding: 16px 22px 0; column-count: 5; column-gap: 16px; height: 662px; overflow: hidden; }
+  .feed.wide { column-count: 3; }
+  .feed.board { column-count: 4; }
+  .pin { break-inside: avoid; margin: 0 0 16px; }
+  .media {
+    position: relative; overflow: hidden; border-radius: 16px; background: var(--g);
+    height: var(--h); box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
+  }
+  .media::after {
+    position: absolute; inset: auto 12px 12px 12px; height: 42%;
+    background: linear-gradient(transparent, rgba(0,0,0,.18)); content: "";
+    pointer-events: none; border-radius: 0 0 16px 16px;
+  }
+  .overlay {
+    position: absolute; inset: 0; display: flex; justify-content: space-between;
+    align-items: flex-start; padding: 10px; background: linear-gradient(180deg, rgba(0,0,0,.28), transparent 42%);
+  }
+  .save {
+    height: 36px; padding: 0 14px; border: 0; border-radius: 18px;
+    color: #fff; background: #e60023; font: 700 13px/36px inherit;
+  }
+  .cluster {
+    display: flex; align-items: center; gap: 6px; height: 36px; padding: 4px;
+    border-radius: 18px; background: #fff;
+  }
+  .menu {
+    width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: #2f2f2e;
+    display: grid; place-items: center;
+  }
+  .menu svg { width: 16px; height: 16px; fill: currentColor; }
+  .footer {
+    display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 2px 0;
+  }
+  .title { flex: 1; min-width: 0; font-size: 12px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .star {
+    width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: #2f2f2e;
+    display: grid; place-items: center;
+  }
+  .star svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+  .closeup { display: grid; grid-template-columns: 1fr 340px; height: 678px; }
+  .hero { margin: 20px 0 20px 28px; border-radius: 20px; background: linear-gradient(160deg, #c46a4a, #8a3d2f 55%, #3f2a24); }
+  .side { padding: 22px 22px 0 18px; }
+  .bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 16px; }
+  .bar .ppp-action { background: #efefef; }
+  .save-lg {
+    height: 40px; padding: 0 16px; border: 0; border-radius: 20px;
+    color: #fff; background: #e60023; font: 700 14px/40px inherit;
+  }
+  .menu-lg {
+    width: 40px; height: 40px; border: 0; border-radius: 50%; background: #efefef; color: #2f2f2e;
+    display: grid; place-items: center;
+  }
+  .menu-lg svg { width: 18px; height: 18px; fill: currentColor; }
+  .related { column-count: 2; column-gap: 12px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%);
+    padding: 11px 15px; border: 1px solid #2f2f2e; border-radius: 8px;
+    color: #fff; background: #2f2f2e; font-weight: 600;
+  }
+  .ppp-root { font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Helvetica Neue", Arial, sans-serif; }
+  .ppp-grid-shell { opacity: 1 !important; }
+  .picker-wrap { position: fixed; left: 430px; top: 168px; }
+</style></head>
+<body>
+  <div class="caption">Carousels open a picker — choose the slide to copy or save</div>
+  <div class="page"><header class="topbar">
+    <div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="search">Search inspiration</div>
+    <div class="avatar"></div>
+  </header><div class="feed">
+      <article class="pin"><div class="media" style="--h:240px;--g:linear-gradient(165deg,#e7cbb3 0%,#c17a5a 48%,#6d3a2d 100%)"></div></article><article class="pin"><div class="media" style="--h:200px;--g:linear-gradient(165deg,#d7e2d4 0%,#7f9b78 52%,#2f4630 100%)"></div></article><article class="pin"><div class="media" style="--h:260px;--g:linear-gradient(165deg,#f0e2c4 0%,#d1a15a 50%,#7a4b22 100%)"></div></article>
+      <article class="pin"><div class="media" style="--h:188px;--g:linear-gradient(165deg,#ead7d7 0%,#b36b73 48%,#5c2d38 100%)"></div></article><article class="pin"><div class="media" style="--h:220px;--g:linear-gradient(165deg,#d9e3ee 0%,#6d8eae 52%,#24364a 100%)"></div></article><article class="pin"><div class="media" style="--h:176px;--g:linear-gradient(165deg,#e6dcc8 0%,#9a8a6c 50%,#3f382c 100%)"></div></article>
+      <article class="pin"><div class="media" style="--h:230px;--g:linear-gradient(165deg,#f3d6c4 0%,#de8b63 46%,#8a3e28 100%)"></div></article><article class="pin"><div class="media" style="--h:196px;--g:linear-gradient(165deg,#cfd6c8 0%,#8ea08a 50%,#3c4a3e 100%)"></div></article>
+    </div>
+    <div class="picker-wrap ppp-root">
+      <section class="ppp-media-picker" role="dialog" aria-label="Choose media to copy">
+        <div class="ppp-picker-header">
+          <div class="ppp-picker-title-block">
+            <span class="ppp-picker-eyebrow">Copy to clipboard</span>
+            <span class="ppp-picker-title">Choose media</span>
+            <span class="ppp-picker-subtitle">4 items available</span>
+          </div>
+          <button class="ppp-picker-close" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg><span>Close</span></button>
+        </div>
+        <div class="ppp-picker-scroll">
+          <div class="ppp-picker-grid">
+            
+              <button class="ppp-media-option" type="button">
+                <span class="ppp-media-preview-wrap" style="background:linear-gradient(165deg,#e7cbb3 0%,#c17a5a 48%,#6d3a2d 100%)">
+                  
+                </span>
+                <span class="ppp-media-label">Image 1</span>
+              </button>
+              <button class="ppp-media-option" type="button">
+                <span class="ppp-media-preview-wrap" style="background:linear-gradient(165deg,#d9e3ee 0%,#6d8eae 52%,#24364a 100%)">
+                  
+                </span>
+                <span class="ppp-media-label">Image 2</span>
+              </button>
+              <button class="ppp-media-option" type="button">
+                <span class="ppp-media-preview-wrap" style="background:linear-gradient(165deg,#d7e2d4 0%,#7f9b78 52%,#2f4630 100%)">
+                  <span class="ppp-media-kind">Video</span>
+                </span>
+                <span class="ppp-media-label">Video 1</span>
+              </button>
+              <button class="ppp-media-option" type="button">
+                <span class="ppp-media-preview-wrap" style="background:linear-gradient(165deg,#f0e2c4 0%,#d1a15a 50%,#7a4b22 100%)">
+                  
+                </span>
+                <span class="ppp-media-label">Image 3</span>
+              </button>
+          </div>
+        </div>
+      </section>
+    </div><div class="ppp-root"><div class="ppp-grid-shell">
+    <section class="ppp-grid-panel" aria-label="Grid tile size">
+      <label class="ppp-range-row">
+        <input class="ppp-range" type="range" min="160" max="420" step="4" value="236" aria-label="Tile width" />
+      </label>
+      <div class="ppp-grid-foot">
+        <button class="ppp-step" type="button" aria-label="More columns"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg><span>More columns</span></button>
+        <span class="ppp-grid-value">236px · 5 cols</span>
+        <button class="ppp-step" type="button" aria-label="Fewer columns"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg><span>Fewer columns</span></button>
+        <button class="ppp-reset" type="button" aria-label="Reset tile size"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8v-4m0 0h4M5 4l3 3a7 7 0 1 1-1.4 7.2"/></svg><span>Reset</span></button>
+      </div>
+    </section>
+  </div></div></div>
+</body></html>

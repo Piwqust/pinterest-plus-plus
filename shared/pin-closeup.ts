@@ -1,4 +1,4 @@
-import { PIN_SELECTOR } from './pin-grid-roots';
+import { ANY_PIN_SELECTOR } from './pin-grid-roots';
 import { findMoreControl } from './pinterest-dom';
 
 const CLOSEUP_MEDIA_SELECTOR = 'img, video';
@@ -33,7 +33,7 @@ export interface PinCloseup {
 
 /** Anything the grid owns, and anything this extension has already added. */
 function isForeignBranch(element: Element): boolean {
-  return Boolean(element.closest(PIN_SELECTOR) ?? element.closest('[data-ppp-ignore="true"]'));
+  return Boolean(element.closest(ANY_PIN_SELECTOR) ?? element.closest('[data-ppp-ignore="true"]'));
 }
 
 function closeupMediaArea(element: Element): number {
@@ -90,7 +90,7 @@ function findCloseupMediaScope(hero: HTMLElement, doc: Document): HTMLElement {
     depth < MAX_CLOSEUP_DEPTH && ancestor && ancestor !== doc.body;
     depth += 1, ancestor = ancestor.parentElement
   ) {
-    if (ancestor.querySelector(PIN_SELECTOR)) break;
+    if (ancestor.querySelector(ANY_PIN_SELECTOR)) break;
     const media = Array.from(ancestor.querySelectorAll(CLOSEUP_MEDIA_SELECTOR));
     if (media.some((element) => isForeignMedia(element, hero))) break;
     scope = ancestor;
@@ -134,7 +134,7 @@ function liftToActionBarItem(control: HTMLElement, doc: Document): HTMLElement {
  * outside the grid and the page's own chrome belong to the pin being viewed.
  */
 function findCloseupMenu(doc: Document, hero: HTMLElement): HTMLElement | null {
-  const outsideGrid = (control: HTMLElement): boolean => !control.closest(PIN_SELECTOR);
+  const outsideGrid = (control: HTMLElement): boolean => !control.closest(ANY_PIN_SELECTOR);
   for (
     let depth = 0, ancestor = hero.parentElement;
     depth < MAX_CLOSEUP_DEPTH && ancestor && ancestor !== doc.body;
@@ -142,7 +142,7 @@ function findCloseupMenu(doc: Document, hero: HTMLElement): HTMLElement | null {
   ) {
     const control = findMoreControl(ancestor, outsideGrid);
     if (control) return control;
-    if (ancestor.querySelector(PIN_SELECTOR)) break;
+    if (ancestor.querySelector(ANY_PIN_SELECTOR)) break;
   }
   return findMoreControl(
     doc.body,

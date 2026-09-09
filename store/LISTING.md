@@ -1,0 +1,198 @@
+# Chrome Web Store listing copy
+
+Paste these fields into [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole). Primary language is English because the product UI is English. Russian copy is optional.
+
+Manifest `name` and `description` must stay in sync with the short fields below. They already match `wxt.config.ts`.
+
+---
+
+## Product details (English)
+
+**Item name** (must match manifest)
+
+```
+Pinterest Plus Plus
+```
+
+**Summary** (manifest `description`, 82 / 132 characters)
+
+```
+Copy and download Pinterest media in full quality, and resize the responsive grid.
+```
+
+**Detailed description**
+
+```
+Pinterest Plus Plus adds Copy, Download, and a resizable grid to Pinterest. The controls follow Pinterest’s own layout instead of covering it.
+
+Copy any image to the clipboard as a full-resolution PNG. Download the highest-quality image or video Pinterest actually serves. On the home feed the buttons sit beside the pin’s three-dot menu. On boards and profiles they sit in the pin footer beside the favourite star, so they stay visible without hovering. On a pin close-up they match Pinterest’s action-bar size and act on the pin you are viewing, not the related grid around it.
+
+If a pin is a carousel, you choose the slide. Videos copy the first decoded frame, or the poster if Pinterest blocks decoding.
+
+A compact slider in the corner resizes the masonry. Release it and Pinterest’s own engine reflows exact-width centered columns. Step whole columns at a time and read the live tile width and column count from the grid. The upper limit follows the real grid width, so you always keep at least two columns. Chrome Sync can keep that preference across your profiles.
+
+The extension does not collect accounts, analytics, or browsing history. Media is fetched only from Pinterest and Pinimg when you click Copy or Download, and is processed locally in Chrome.
+
+Requires Chrome 109 or newer.
+
+Pinterest is a trademark of Pinterest, Inc. This independent extension is not affiliated with or endorsed by Pinterest.
+```
+
+**Category:** Productivity  
+**Language:** English  
+**Mature content:** No
+
+---
+
+## Product details (Russian, optional extra locale)
+
+Use only if you add a Russian listing locale. Do not replace the English summary in the manifest.
+
+**Название**
+
+```
+Pinterest Plus Plus
+```
+
+**Краткое описание** (≤132 characters; 79)
+
+```
+Копируйте и скачивайте медиа с Pinterest в полном качестве и меняйте размер сетки.
+```
+
+**Подробное описание**
+
+```
+Pinterest Plus Plus добавляет на Pinterest кнопки Copy и Download и регулятор размера сетки. Элементы следуют собственной вёрстке Pinterest, а не перекрывают её.
+
+Копируйте любое изображение в буфер как PNG в полном разрешении. Скачивайте изображение или видео с того источника CDN, который Pinterest реально отдаёт. В ленте кнопки стоят рядом с меню из трёх точек. На досках и профилях — в подвале пина рядом со звездой, поэтому они видны без наведения. В крупном просмотре они совпадают по размеру с панелью Pinterest и действуют на открытый пин, а не на соседнюю сетку.
+
+Если у пина несколько слайдов, вы выбираете нужный. Для видео копируется первый декодированный кадр, а если Pinterest блокирует декодирование — постер.
+
+Компактный ползунок в углу меняет ширину плиток. После отпускания собственный движок Pinterest перестраивает колонки точной ширины. Можно шагать целыми колонками и читать живую ширину плитки и число колонок. Верхний предел следует реальной ширине сетки, поэтому всегда остаются минимум две колонки. Chrome Sync может хранить эту настройку между профилями.
+
+Расширение не собирает аккаунты, аналитику и историю просмотра. Медиа запрашивается только с Pinterest и Pinimg после нажатия Copy или Download и обрабатывается локально в Chrome.
+
+Нужен Chrome 109 или новее.
+
+Pinterest — товарный знак Pinterest, Inc. Это независимое расширение не связано с Pinterest и не одобрено им.
+```
+
+---
+
+## Graphic assets
+
+Upload from `store/assets/`. PNG, no alpha, exact pixel sizes.
+
+| Dashboard field | File | Size |
+|---|---|---|
+| Store icon | `icon-128.png` | 128×128 |
+| Screenshot 1 | `screenshot-1-copy-download.png` | 1280×800 |
+| Screenshot 2 | `screenshot-2-board-footer.png` | 1280×800 |
+| Screenshot 3 | `screenshot-3-grid-slider.png` | 1280×800 |
+| Screenshot 4 | `screenshot-4-closeup.png` | 1280×800 |
+| Screenshot 5 | `screenshot-5-media-picker.png` | 1280×800 |
+| Small promo tile | `promo-small-440x280.png` | 440×280 |
+| Marquee promo tile | `promo-marquee-1400x560.png` | 1400×560 |
+| YouTube video | skip | optional |
+
+Screenshots are mock Pinterest-like pages that use the extension’s real control CSS and icons. They are not captures of pinterest.com and do not use Pinterest’s logo or copyrighted pins.
+
+---
+
+## Privacy practices
+
+**Single purpose**
+
+```
+Add copy, download, and grid-size controls to Pinterest pages so the user can save pin media and resize the feed.
+```
+
+**Remote code:** No, I am not using remote code.
+
+### Permission justifications
+
+**clipboardWrite**
+
+```
+Used when the user clicks Copy. The selected pin image (or a video frame/poster) is converted to PNG inside the extension and written to the clipboard so it can be pasted elsewhere.
+```
+
+**downloads**
+
+```
+Used when the user clicks Download. Chrome’s download manager saves the verified media file from Pinterest’s CDN to the user’s Downloads folder. The extension does not download anything until that click.
+```
+
+**offscreen**
+
+```
+Manifest V3 service workers cannot draw to a canvas or write the clipboard. An offscreen document converts the selected Pinterest media to PNG and writes it to the clipboard. Declared reason: CLIPBOARD and BLOBS. Justification in the extension: “Convert Pinterest media to PNG and write it to the clipboard.”
+```
+
+**storage**
+
+```
+Stores one number: the user’s preferred grid tile width, via chrome.storage.sync, so the layout can follow Chrome Sync across the user’s profiles. No other keys are written.
+```
+
+**Host permission `https://*.pinterest.com/*`**
+
+```
+Content scripts run only on Pinterest pages. They attach the Copy and Download buttons and the grid slider, and they read the media URL of the pin the user clicked. The extension does not run on other sites.
+```
+
+**Host permission `https://*.pinimg.com/*`**
+
+```
+When the user clicks Copy or Download, Chrome fetches that pin’s media from Pinterest’s CDN (pinimg.com). URLs are allowlisted to pinterest.com and pinimg.com before any fetch or download.
+```
+
+### Data use disclosure
+
+Check **only**:
+
+- [x] Website content
+
+Leave unchecked: personally identifiable information, health, financial and payment, authentication, personal communications, location, web history, user activity.
+
+Website content is handled only to provide Copy, Download, and grid resizing on the current Pinterest page. It is not sent to the developer.
+
+**Certify** all Limited Use statements (no sale of data; no use unrelated to the single purpose; no use for creditworthiness; compliance with the User Data Policy).
+
+**Privacy policy URL:**
+
+```
+https://piwqust.github.io/pinterest-plus-plus/
+```
+
+---
+
+## Distribution
+
+- Visibility: **Public**
+- Pricing: **Free**
+- Regions: **All regions**
+- Listing language: **English**
+- Homepage URL: `https://github.com/Piwqust/pinterest-plus-plus`
+
+---
+
+## Content rating / IARC
+
+Answer for the extension itself, not for Pinterest’s catalogue:
+
+- Violence, sexual content, strong language, drugs, gambling: **No**
+- User-generated content hosted by this item: **No**
+- Shares user location: **No**
+- Digital purchases / ads inside the item: **No**
+- Mature content: **No**
+- Age: **Everyone** / suitable for all ages
+
+---
+
+## Reviewer notes (optional “test instructions”)
+
+```
+Load on https://www.pinterest.com (any account, including logged out on public pins). Copy and Download appear beside each main-grid pin’s three-dot menu and beside the pin close-up’s action bar. On boards and profiles they sit in the pin footer. The tile-size slider is in the lower-right corner. A MAIN-world content script talks to Pinterest’s masonry so resizing uses Pinterest’s own layout engine rather than CSS scaling. No account, analytics, or remote configuration.
+```

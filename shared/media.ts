@@ -21,6 +21,9 @@ const VIDEO_QUALITIES = ['1080p', '720p', '480p', '360p'] as const;
 const VIDEO_QUALITY_SEGMENT = /\/(2160|1440|1080|720|540|480|360)p\//i;
 const VIDEO_ORIGINALS_SEGMENT = /\/originals?\//i;
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+const MEDIA_CONTENT_TYPE: Record<MediaKind, string> = { image: 'image/', video: 'video/' };
+/** A byte stream the CDN declines to type is still the file that was asked for. */
+const OPAQUE_CONTENT_TYPE = 'application/octet-stream';
 
 export interface MediaDescriptor {
   kind: MediaKind;
@@ -69,6 +72,18 @@ export function isDownloadableVideoUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether a CDN response carries the media file itself. Pinterest answers a
+ * route it never published with 403 and an XML error body, and Chrome's
+ * download manager saves that body as a file, so the status and the declared
+ * type both have to agree before a candidate reaches Downloads.
+ */
+export function isMediaResponse(status: number, contentType: string | null | undefined, kind: MediaKind): boolean {
+  if (status < 200 || status >= 300) return false;
+  const type = (contentType ?? '').trim().toLowerCase();
+  return type.startsWith(MEDIA_CONTENT_TYPE[kind]) || type.startsWith(OPAQUE_CONTENT_TYPE);
 }
 
 function progressiveVideoCandidates(value: string): string[] {

@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "store:assets": "node scripts/generate-store-assets.mjs"
   },
   "devDependencies": {
     "@types/chrome": "0.2.2",

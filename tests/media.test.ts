@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectPinMedia, describeMedia, imageCandidates, isAllowedMediaUrl, isDownloadableVideoUrl, mediaFileExtension, parseSrcset, posterCandidates, safeFilename, toOriginalPinimgUrl, videoCandidates, videoCandidatesFromTimeline } from '../shared/media';
+import { collectPinMedia, describeMedia, imageCandidates, isAllowedMediaUrl, isDownloadableVideoUrl, isMediaResponse, mediaFileExtension, parseSrcset, posterCandidates, safeFilename, toOriginalPinimgUrl, videoCandidates, videoCandidatesFromTimeline } from '../shared/media';
 
 describe('Pinterest media resolution', () => {
   it('sorts srcset candidates from largest to smallest', () => {
@@ -215,5 +215,26 @@ describe('Pinterest media resolution', () => {
     ]);
     expect(options[0]?.previewUrl).toContain('/236x/aa/one.jpg');
     expect(options[2]?.posterCandidates[0]).toContain('/originals/aa/video.jpg');
+  });
+
+  it('accepts a CDN response that carries the media file itself', () => {
+    expect(isMediaResponse(200, 'image/jpeg', 'image')).toBe(true);
+    expect(isMediaResponse(206, 'image/webp', 'image')).toBe(true);
+    expect(isMediaResponse(200, 'IMAGE/PNG; charset=binary', 'image')).toBe(true);
+    expect(isMediaResponse(206, 'video/mp4', 'video')).toBe(true);
+    expect(isMediaResponse(200, 'application/octet-stream', 'video')).toBe(true);
+  });
+
+  it('rejects the XML error body Pinterest serves for an unpublished route', () => {
+    expect(isMediaResponse(403, 'application/xml', 'image')).toBe(false);
+    expect(isMediaResponse(200, 'application/xml', 'image')).toBe(false);
+    expect(isMediaResponse(200, 'text/xml', 'video')).toBe(false);
+    expect(isMediaResponse(200, 'text/html', 'image')).toBe(false);
+    expect(isMediaResponse(200, null, 'image')).toBe(false);
+  });
+
+  it('does not accept an image response as a video file, or the reverse', () => {
+    expect(isMediaResponse(200, 'image/jpeg', 'video')).toBe(false);
+    expect(isMediaResponse(200, 'video/mp4', 'image')).toBe(false);
   });
 });

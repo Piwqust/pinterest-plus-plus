@@ -7,7 +7,7 @@ import {
   type GridStatusDetail,
   isGridSetWidthDetail,
 } from './grid-bridge-events';
-import { PIN_SELECTOR, containsPin, findPinGridRoots } from './pin-grid-roots';
+import { ANY_PIN_SELECTOR, containsPin, findPinGridRoots } from './pin-grid-roots';
 import {
   HooksMasonryInstance,
   type MasonryFiber,
@@ -240,7 +240,7 @@ function restoreStyle(snapshot: StyleSnapshot): void {
 function rootForPatch(patch: InstancePatch): HTMLElement | null {
   if (patch.root.isConnected && patch.instance.gridWrapper.contains(patch.root)) return patch.root;
   return Array.from(patch.instance.gridWrapper.querySelectorAll<HTMLElement>('[role="list"]'))
-    .find((root) => Boolean(root.querySelector(PIN_SELECTOR))) ?? null;
+    .find((root) => Boolean(root.querySelector(ANY_PIN_SELECTOR))) ?? null;
 }
 
 function getScrollViewport(container: HTMLElement | Window, win: BrowserWindow): { top: number; bottom: number } {

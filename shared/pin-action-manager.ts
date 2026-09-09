@@ -1,5 +1,5 @@
-import { MAX_SCANNED_PINS, PIN_SELECTOR } from './pin-grid-roots';
-import { findGridItem, findMoreControl } from './pinterest-dom';
+import { ANY_PIN_SELECTOR, MAX_SCANNED_PINS } from './pin-grid-roots';
+import { findFavoriteControl, findGridItem, findMoreControl } from './pinterest-dom';
 
 const PIN_MEDIA_SELECTOR = 'img, video';
 /** Pins are decorated slightly before they scroll into view. */
@@ -14,17 +14,24 @@ interface GridRootSource {
  * Adds an extension-owned control beside each pin's three-dot menu. Decoration
  * waits until a pin approaches the viewport, and the caller's factory decides
  * what the control contains, so a deep feed only pays for what is on screen.
+ *
+ * A board pin carries a favourite star in its always-visible footer row, and
+ * that row is preferred over the three-dot menu the hover overlay hides. Where
+ * a card offers neither — the `gated-pin-rep` used for gated boards — the
+ * buttons are overlaid on the pin image instead.
  */
 export class PinActionManager {
   private observer = new MutationObserver(() => this.queueScan());
   private intersection: IntersectionObserver | null = null;
   private scanTimer: number | undefined;
-  private menuHosts = new WeakMap<HTMLElement, HTMLElement>();
+  private anchorHosts = new WeakMap<HTMLElement, HTMLElement>();
   private pinHosts = new WeakMap<HTMLElement, HTMLElement>();
   private pinRoots = new WeakMap<HTMLElement, HTMLElement>();
   private enrolled = new WeakSet<HTMLElement>();
   private nearViewport = new Set<HTMLElement>();
   private hosts = new Set<HTMLElement>();
+  /** Overlaid hosts stay re-checkable so a late-rendering footer wins them back. */
+  private overlaid = new WeakSet<HTMLElement>();
 
   constructor(
     private grid: GridRootSource,
@@ -74,10 +81,10 @@ export class PinActionManager {
 
   private scan(): void {
     for (const root of this.grid.getRoots()) {
-      const pins = Array.from(root.querySelectorAll<HTMLElement>(PIN_SELECTOR)).slice(0, MAX_SCANNED_PINS);
+      const pins = Array.from(root.querySelectorAll<HTMLElement>(ANY_PIN_SELECTOR)).slice(0, MAX_SCANNED_PINS);
       for (const pin of pins) {
         this.pinRoots.set(pin, root);
-        if (this.pinHosts.get(pin)?.isConnected) continue;
+        if (this.isSettled(pin)) continue;
         if (!this.intersection) {
           this.decorate(pin);
           continue;
@@ -88,8 +95,8 @@ export class PinActionManager {
       }
     }
 
-    // A pin can gain its menu control after the observer already reported it,
-    // so retry the small set that is currently near the viewport.
+    // A pin can gain its footer or menu control after the observer already
+    // reported it, so retry the small set that is currently near the viewport.
     for (const pin of this.nearViewport) {
       if (!pin.isConnected) {
         this.nearViewport.delete(pin);
@@ -99,29 +106,71 @@ export class PinActionManager {
     }
   }
 
+  /** A pin is settled once it holds a host anchored to a control of its own. */
+  private isSettled(pin: HTMLElement): boolean {
+    const host = this.pinHosts.get(pin);
+    return host !== undefined && host.isConnected && !this.overlaid.has(host);
+  }
+
   private decorate(pin: HTMLElement): void {
-    if (!pin.isConnected || this.pinHosts.get(pin)?.isConnected) return;
+    if (!pin.isConnected || this.isSettled(pin)) return;
+    const existing = this.pinHosts.get(pin);
     const root = this.pinRoots.get(pin);
     if (!root?.isConnected) return;
     // Presence is enough to justify the control; the full candidate list is
     // only built when the user actually clicks it.
     if (!pin.querySelector(PIN_MEDIA_SELECTOR)) return;
-    const moreControl = findMoreControl(findGridItem(pin, root));
-    if (!moreControl?.parentElement || moreControl.closest('#pinterest-plus-plus-root')) return;
+    const item = findGridItem(pin, root);
+    const anchor = findFavoriteControl(item) ?? findMoreControl(item);
 
-    const existingHost = this.menuHosts.get(moreControl);
+    if (anchor?.parentElement && !anchor.closest('#pinterest-plus-plus-root')) {
+      if (existing?.isConnected) this.release(pin, existing);
+      this.attachBefore(pin, anchor);
+      return;
+    }
+
+    if (existing?.isConnected) return;
+    // Last resort for a card that offers no control of its own: overlay the
+    // buttons on the pin image so its media stays reachable.
+    const host = this.createHost(pin);
+    this.applyOverlayStyle(host, pin);
+    pin.append(host);
+    this.pinHosts.set(pin, host);
+    this.hosts.add(host);
+    this.overlaid.add(host);
+  }
+
+  /** Places `host` as the sibling immediately before Pinterest's own control. */
+  private attachBefore(pin: HTMLElement, anchor: HTMLElement): void {
+    const existingHost = this.anchorHosts.get(anchor);
     if (existingHost) {
-      if (!existingHost.isConnected || existingHost.nextElementSibling !== moreControl) {
-        moreControl.before(existingHost);
+      if (!existingHost.isConnected || existingHost.nextElementSibling !== anchor) {
+        anchor.before(existingHost);
       }
       this.pinHosts.set(pin, existingHost);
       return;
     }
 
     const host = this.createHost(pin);
-    moreControl.before(host);
-    this.menuHosts.set(moreControl, host);
+    anchor.before(host);
+    this.anchorHosts.set(anchor, host);
     this.pinHosts.set(pin, host);
     this.hosts.add(host);
+  }
+
+  private release(pin: HTMLElement, host: HTMLElement): void {
+    host.remove();
+    this.hosts.delete(host);
+    this.pinHosts.delete(pin);
+  }
+
+  private applyOverlayStyle(host: HTMLElement, pin: HTMLElement): void {
+    host.style.position = 'absolute';
+    host.style.bottom = '6px';
+    host.style.right = '6px';
+    host.style.zIndex = '10';
+    host.style.pointerEvents = 'auto';
+    // The overlay is anchored to the pin, which Pinterest may leave static.
+    if (getComputedStyle(pin).position === 'static') pin.style.position = 'relative';
   }
 }
