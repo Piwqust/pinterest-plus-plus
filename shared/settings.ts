@@ -4,6 +4,13 @@ export const MIN_TILE_WIDTH = 160;
 export const ABSOLUTE_MAX_TILE_WIDTH = 2048;
 /** Used when the real grid width cannot be measured yet. */
 export const FALLBACK_MAX_TILE_WIDTH = 420;
+/**
+ * The popup has no Pinterest grid to measure, so it offers this range and lets
+ * the on-page control — which reads the live grid — narrow the value if the
+ * viewport cannot show it. A stored preference wider than this still opens at
+ * its own width rather than being snapped down by merely opening the popup.
+ */
+export const POPUP_MAX_TILE_WIDTH = FALLBACK_MAX_TILE_WIDTH;
 /** Pinterest's Masonry gutter, used until the grid reports its own. */
 export const DEFAULT_GUTTER = 16;
 export const TILE_STEP = 4;
@@ -65,9 +72,18 @@ export function widthForColumns(
   return Math.min(ABSOLUTE_MAX_TILE_WIDTH, Math.max(MIN_TILE_WIDTH, snapDown(raw)));
 }
 
+/**
+ * Never rejects. A profile with sync storage disabled by policy would otherwise
+ * fail the content script's first await and leave the page with no controls at
+ * all, when the default width would have served the session perfectly well.
+ */
 export async function readSettings(): Promise<Settings> {
-  const stored = await browser.storage.sync.get('tileWidth');
-  return { tileWidth: clampTileWidth(stored.tileWidth) };
+  try {
+    const stored = await browser.storage.sync.get('tileWidth');
+    return { tileWidth: clampTileWidth(stored.tileWidth) };
+  } catch {
+    return { tileWidth: DEFAULT_TILE_WIDTH };
+  }
 }
 
 export async function writeTileWidth(tileWidth: number): Promise<number> {

@@ -29,11 +29,13 @@ Copy any image to the clipboard as a full-resolution PNG. Download the highest-q
 
 If a pin is a carousel, you choose the slide. Videos copy the first decoded frame, or the poster if Pinterest blocks decoding.
 
+The toolbar button opens a small panel with the same tile-width control, so you can set the grid before you open Pinterest. Changing it there reflows every Pinterest tab you already have open.
+
 A compact slider in the corner resizes the masonry. Release it and Pinterest’s own engine reflows exact-width centered columns. Step whole columns at a time and read the live tile width and column count from the grid. The upper limit follows the real grid width, so you always keep at least two columns. Chrome Sync can keep that preference across your profiles.
 
 The extension does not collect accounts, analytics, or browsing history. Media is fetched only from Pinterest and Pinimg when you click Copy or Download, and is processed locally in Chrome.
 
-Requires Chrome 109 or newer.
+Requires Chrome 111 or newer.
 
 Pinterest is a trademark of Pinterest, Inc. This independent extension is not affiliated with or endorsed by Pinterest.
 ```
@@ -54,7 +56,7 @@ Use only if you add a Russian listing locale. Do not replace the English summary
 Pinterest Plus Plus
 ```
 
-**Краткое описание** (≤132 characters; 79)
+**Краткое описание** (≤132 characters; 82)
 
 ```
 Копируйте и скачивайте медиа с Pinterest в полном качестве и меняйте размер сетки.
@@ -69,11 +71,13 @@ Pinterest Plus Plus добавляет на Pinterest кнопки Copy и Downl
 
 Если у пина несколько слайдов, вы выбираете нужный. Для видео копируется первый декодированный кадр, а если Pinterest блокирует декодирование — постер.
 
+Кнопка на панели открывает небольшое окно с тем же регулятором ширины плитки, поэтому сетку можно настроить до открытия Pinterest. Изменение сразу перестраивает все уже открытые вкладки Pinterest.
+
 Компактный ползунок в углу меняет ширину плиток. После отпускания собственный движок Pinterest перестраивает колонки точной ширины. Можно шагать целыми колонками и читать живую ширину плитки и число колонок. Верхний предел следует реальной ширине сетки, поэтому всегда остаются минимум две колонки. Chrome Sync может хранить эту настройку между профилями.
 
 Расширение не собирает аккаунты, аналитику и историю просмотра. Медиа запрашивается только с Pinterest и Pinimg после нажатия Copy или Download и обрабатывается локально в Chrome.
 
-Нужен Chrome 109 или новее.
+Нужен Chrome 111 или новее.
 
 Pinterest — товарный знак Pinterest, Inc. Это независимое расширение не связано с Pinterest и не одобрено им.
 ```
@@ -82,7 +86,7 @@ Pinterest — товарный знак Pinterest, Inc. Это независи�
 
 ## Graphic assets
 
-Upload from `store/assets/`. PNG, no alpha, exact pixel sizes.
+Upload from `store/assets/`. PNG at the exact pixel sizes below. The promo tiles and screenshots are flattened to RGB; the 128×128 store icon keeps its alpha channel, which the store accepts.
 
 | Dashboard field | File | Size |
 |---|---|---|
@@ -105,7 +109,7 @@ Screenshots are mock Pinterest-like pages that use the extension’s real contro
 **Single purpose**
 
 ```
-Add copy, download, and grid-size controls to Pinterest pages so the user can save pin media and resize the feed.
+Add copy, download, and grid-size controls to Pinterest pages so the user can save pin media and resize the feed. The toolbar popup exposes the same grid-size setting.
 ```
 
 **Remote code:** No, I am not using remote code.
@@ -133,7 +137,7 @@ Manifest V3 service workers cannot draw to a canvas or write the clipboard. An o
 **storage**
 
 ```
-Stores one number: the user’s preferred grid tile width, via chrome.storage.sync, so the layout can follow Chrome Sync across the user’s profiles. No other keys are written.
+Stores one number: the user’s preferred grid tile width, via chrome.storage.sync, so the layout can follow Chrome Sync across the user’s profiles. The toolbar popup reads and writes that same key, which is how it resizes already-open Pinterest tabs without any tab access. No other keys are written.
 ```
 
 **Host permission `https://*.pinterest.com/*`**
@@ -194,5 +198,5 @@ Answer for the extension itself, not for Pinterest’s catalogue:
 ## Reviewer notes (optional “test instructions”)
 
 ```
-Load on https://www.pinterest.com (any account, including logged out on public pins). Copy and Download appear beside each main-grid pin’s three-dot menu and beside the pin close-up’s action bar. On boards and profiles they sit in the pin footer. The tile-size slider is in the lower-right corner. A MAIN-world content script talks to Pinterest’s masonry so resizing uses Pinterest’s own layout engine rather than CSS scaling. No account, analytics, or remote configuration.
+Load on https://www.pinterest.com (any account, including logged out on public pins). Copy and Download appear beside each main-grid pin’s three-dot menu and beside the pin close-up’s action bar. On boards and profiles they sit in the pin footer. The tile-size slider is in the lower-right corner. A MAIN-world content script talks to Pinterest’s masonry so resizing uses Pinterest’s own layout engine rather than CSS scaling. The toolbar button opens a popup carrying the same tile-width setting; it writes chrome.storage.sync, which the content script already observes, so no tabs permission is needed. No account, analytics, or remote configuration.
 ```

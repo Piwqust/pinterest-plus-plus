@@ -9,7 +9,7 @@ Pinterest Plus Plus is an independent project and is not affiliated with, endors
 
 ## What the extension handles
 
-The extension runs only on `pinterest.com` pages. It does not run on other websites.
+The extension’s content scripts run only on `pinterest.com` pages. They do not run on other websites. The toolbar popup is a page inside the extension itself; it reads and writes only the tile-width setting described below.
 
 ### Website content, on your action
 

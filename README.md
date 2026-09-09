@@ -9,6 +9,7 @@ A polished Chrome extension for Pinterest that adds native-feeling media actions
 - Get the same Copy and Download actions on the pin close-up, beside the three-dot menu in its action bar, sized to match Pinterest's own controls there. They act on the pin being viewed rather than on the related-pins grid around it.
 - Download any image or video from the highest-quality Pinterest CDN source available.
 - Copy a video's first decoded frame; if Pinterest blocks video decoding, the highest-quality poster is used as a graceful fallback.
+- Set the tile width from the toolbar popup as well, without opening Pinterest first. The popup writes the same synced preference, so every open Pinterest tab reflows immediately; it needs no tab access to do it.
 - Resize Pinterest grid tiles from an on-page control that reaches all the way to two full-width pins per row. On release, the extension asks Pinterest's own masonry engine to reflow exact-width centered columns, preserving its virtual-scroll geometry; the setting syncs across Chrome profiles where Chrome Sync is enabled.
 - Step whole columns at a time from the panel, and read the resulting tile width and column count straight from the live grid. The slider's upper limit follows the real grid width, so it always offers at least two columns and never proposes a layout Pinterest cannot render.
 - Track the viewport: resizing the window recomputes the column layout in place, and a narrower window temporarily narrows tiles without discarding the stored preference.
@@ -39,7 +40,7 @@ The extension requests only the permissions used by its visible features: Pinter
 
 ## Quality and compatibility notes
 
-- Requires Chrome 109 or newer because clipboard conversion uses Manifest V3 offscreen documents.
+- Requires Chrome 111 or newer. Clipboard conversion needs Manifest V3 offscreen documents (Chrome 109), and the grid bridge needs `world: "MAIN"` on a manifest-declared content script, which Chrome honours only from 111. Below that the bridge would load in the isolated world and resizing would silently do nothing.
 - Original Pinterest CDN URLs are tried before rendered thumbnails; downloads fall back to the next available candidate if the original is unavailable.
 - Clipboard images are intentionally encoded as PNG because Chromium and operating-system clipboards support it reliably.
 - Grid resizing verifies Pinterest's masonry contract before changing it. If Pinterest ships an incompatible layout, the extension restores the native grid and stops resizing instead of applying a visually scaled fallback. It retries a bounded number of times after a client-side navigation or a feed remount, so one incompatible page does not disable the control for the whole session.

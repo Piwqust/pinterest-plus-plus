@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   ABSOLUTE_MAX_TILE_WIDTH,
   DEFAULT_TILE_WIDTH,
   FALLBACK_MAX_TILE_WIDTH,
   MIN_TILE_WIDTH,
+  POPUP_MAX_TILE_WIDTH,
   clampTileWidth,
   columnsForWidth,
   maxTileWidthFor,
+  readSettings,
   widthForColumns,
 } from '../shared/settings';
 
@@ -62,5 +64,36 @@ describe('viewport-relative limits', () => {
   it('clamps a column request that would go below the minimum tile width', () => {
     expect(widthForColumns(40, 900, 16)).toBe(MIN_TILE_WIDTH);
     expect(widthForColumns(1, 1_920, 16)).toBe(1_920);
+  });
+});
+
+describe('reading stored settings', () => {
+  const setStorage = (get: () => Promise<Record<string, unknown>>) => {
+    (globalThis as Record<string, unknown>).browser = { storage: { sync: { get } } };
+  };
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).browser;
+  });
+
+  it('normalises a stored width', async () => {
+    setStorage(async () => ({ tileWidth: 301 }));
+    expect((await readSettings()).tileWidth).toBe(300);
+  });
+
+  it('uses the default when nothing is stored', async () => {
+    setStorage(async () => ({}));
+    expect((await readSettings()).tileWidth).toBe(DEFAULT_TILE_WIDTH);
+  });
+
+  it('falls back instead of rejecting when sync storage is unavailable', async () => {
+    setStorage(async () => { throw new Error('storage disabled by policy'); });
+    await expect(readSettings()).resolves.toEqual({ tileWidth: DEFAULT_TILE_WIDTH });
+  });
+
+  it('offers the popup a range the on-page control can always narrow', () => {
+    expect(POPUP_MAX_TILE_WIDTH).toBeGreaterThan(MIN_TILE_WIDTH);
+    expect(POPUP_MAX_TILE_WIDTH).toBeLessThanOrEqual(ABSOLUTE_MAX_TILE_WIDTH);
+    expect(clampTileWidth(DEFAULT_TILE_WIDTH, POPUP_MAX_TILE_WIDTH)).toBe(DEFAULT_TILE_WIDTH);
   });
 });

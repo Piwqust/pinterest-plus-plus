@@ -1,0 +1,125 @@
+/* Mirrors the design tokens of the on-page controls in `shared/ui-assets.ts`,
+   so the popup and the panel beside the grid read as one product. */
+:root {
+  --ppp-ink: #2f2f2e;
+  --ppp-muted: #787774;
+  --ppp-subtle: #f7f6f3;
+  --ppp-surface: #ffffff;
+  --ppp-border: #eaeaea;
+  --ppp-accent: #9f2f2d;
+  --ppp-focus: rgba(159, 47, 45, .3);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  width: 292px;
+  margin: 0;
+  color: var(--ppp-ink);
+  background: var(--ppp-surface);
+  font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.popup { display: grid; row-gap: 10px; padding: 13px; }
+
+.head { display: flex; align-items: center; gap: 10px; }
+.mark { display: block; border-radius: 7px; }
+.head-text { display: grid; row-gap: 1px; }
+.title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+.subtitle {
+  margin: 0;
+  color: var(--ppp-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  display: grid;
+  row-gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--ppp-border);
+  border-radius: 9px;
+  background: var(--ppp-surface);
+}
+
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+
+.eyebrow {
+  margin: 0;
+  color: var(--ppp-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.value {
+  color: var(--ppp-ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+
+.range {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: ew-resize;
+}
+.range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--ppp-border); }
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
+  border: 2px solid var(--ppp-surface);
+  border-radius: 50%;
+  background: var(--ppp-ink);
+  box-shadow: 0 0 0 1px var(--ppp-border);
+}
+
+.card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.note { margin: 0; color: var(--ppp-muted); font-size: 11px; font-weight: 500; line-height: 1.3; }
+.note[data-error="true"] { color: var(--ppp-accent); }
+
+.list { margin: 0; padding-left: 15px; display: grid; row-gap: 4px; color: var(--ppp-muted); font-size: 11px; font-weight: 500; line-height: 1.35; }
+.list b { color: var(--ppp-ink); font-weight: 650; }
+
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.open, .reset {
+  appearance: none;
+  margin: 0;
+  border: 1px solid var(--ppp-border);
+  border-radius: 6px;
+  color: var(--ppp-ink);
+  background: var(--ppp-surface);
+  font: inherit;
+  cursor: pointer;
+  transition: background 140ms ease-out, transform 140ms ease-out;
+}
+.open { padding: 7px 12px; font-size: 12px; }
+.reset { flex: 0 0 auto; padding: 4px 8px; color: var(--ppp-muted); font-size: 11px; }
+.open:hover, .reset:hover { background: var(--ppp-subtle); }
+.open:active, .reset:active { transform: scale(.97); }
+
+.link { color: var(--ppp-muted); font-size: 11px; font-weight: 600; text-decoration: none; }
+.link:hover { color: var(--ppp-ink); text-decoration: underline; }
+
+.open:focus-visible, .reset:focus-visible, .range:focus-visible, .link:focus-visible {
+  outline: 2px solid var(--ppp-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }

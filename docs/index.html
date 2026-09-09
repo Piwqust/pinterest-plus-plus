@@ -48,7 +48,7 @@
     <p>Pinterest Plus Plus is an independent project and is not affiliated with, endorsed by, or sponsored by Pinterest, Inc.</p>
 
     <h2>What the extension handles</h2>
-    <p>The extension runs only on <code>pinterest.com</code> pages. It does not run on other websites.</p>
+    <p>The extension’s content scripts run only on <code>pinterest.com</code> pages. They do not run on other websites. The toolbar popup is a page inside the extension itself; it reads and writes only the tile-width setting described below.</p>
 
     <h2>Website content, on your action</h2>
     <p>When you click <strong>Copy</strong> or <strong>Download</strong> on a pin, the extension reads that pin’s media addresses from the current page and fetches the file from Pinterest’s own hosts (<code>pinterest.com</code> and <code>pinimg.com</code>) over HTTPS. It does this only for the pin you clicked, and only after you click.</p>

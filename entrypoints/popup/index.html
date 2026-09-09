@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pinterest Plus Plus</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="head">
+        <img class="mark" src="/icon/48.png" width="30" height="30" alt="" />
+        <div class="head-text">
+          <h1 class="title">Pinterest++</h1>
+          <p class="subtitle" id="version">Version</p>
+        </div>
+      </header>
+
+      <section class="card" aria-labelledby="width-heading">
+        <div class="card-head">
+          <h2 class="eyebrow" id="width-heading">Grid tile width</h2>
+          <output class="value" id="value" for="range">236 px</output>
+        </div>
+        <input
+          class="range"
+          id="range"
+          type="range"
+          min="160"
+          max="420"
+          step="4"
+          value="236"
+          aria-labelledby="width-heading"
+        />
+        <div class="card-foot">
+          <p class="note" id="note">Applies to open Pinterest tabs.</p>
+          <button class="reset" id="reset" type="button">Reset</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="onpage-heading">
+        <h2 class="eyebrow" id="onpage-heading">On Pinterest</h2>
+        <ul class="list">
+          <li><b>Copy</b> and <b>Download</b> sit beside each pin's ⋯ menu.</li>
+          <li>On boards and profiles they sit in the pin footer, beside the star.</li>
+          <li>The close-up gets the same pair, sized to its action bar.</li>
+          <li>The corner slider reads your real grid width and column count.</li>
+        </ul>
+      </section>
+
+      <footer class="foot">
+        <button class="open" id="open" type="button">Open Pinterest</button>
+        <a class="link" id="privacy" href="https://piwqust.github.io/pinterest-plus-plus/" target="_blank" rel="noreferrer">Privacy</a>
+      </footer>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
