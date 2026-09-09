@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMediaActionHost } from '../shared/media-action-host';
 import { PinActionManager } from '../shared/pin-action-manager';
 
 type IntersectionCallback = (entries: IntersectionObserverEntry[]) => void;
@@ -224,5 +225,45 @@ describe('PinActionManager', () => {
     expect(hostsInDocument()).toBe(1);
     expect(overlay.isConnected).toBe(false);
     expect(document.querySelector('#fav-0')!.previousElementSibling).toBe(created[1]);
+  });
+
+  it('chips an overlaid host so its icons read against the image', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    document.body.innerHTML = `
+      <main id="grid">
+        <div data-test-id="gated-pin-rep" id="gated-0"><img src="https://i.pinimg.com/236x/a.jpg" /></div>
+        <div data-test-id="gated-pin-rep" id="gated-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div>
+      </main>
+    `;
+    const root = document.querySelector<HTMLElement>('#grid')!;
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const host = document.querySelector<HTMLElement>('#gated-0 [data-ppp-ignore="true"]')!;
+    expect(host.shadowRoot!.querySelector<HTMLElement>('.ppp-pin-actions')!.dataset.chip).toBe('true');
+  });
+
+  it('takes the chip of a neighbour that only paints one on hover', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const root = buildGrid(2);
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    const host = document.querySelector<HTMLElement>('#more-0')!.previousElementSibling as HTMLElement;
+    const actions = host.shadowRoot!.querySelector<HTMLElement>('.ppp-pin-actions')!;
+    expect(actions.dataset.chip).toBeUndefined();
+
+    document.querySelector<HTMLElement>('#more-0')!.style.backgroundColor = 'rgb(255, 255, 255)';
+    pin.dispatchEvent(new Event('pointerenter'));
+
+    expect(actions.dataset.chip).toBe('true');
+    expect(host.style.getPropertyValue('--ppp-chip-bg')).toBe('rgb(255, 255, 255)');
   });
 });

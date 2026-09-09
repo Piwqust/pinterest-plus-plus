@@ -2,7 +2,7 @@
 
 Всё, что можно подготовить без аккаунта Google, уже лежит в репозитории. Ниже — шаги, которые может сделать только владелец аккаунта.
 
-ZIP: `.output/pinterest-plus-plus-1.0.6-chrome.zip` после `npm run zip`.  
+ZIP: `.output/pinterest-plus-plus-1.0.7-chrome.zip` после `npm run zip`.  
 Тексты: `store/LISTING.md`.  
 Картинки: `store/assets/`.  
 Политика: https://piwqust.github.io/pinterest-plus-plus/ (`store/privacy.html`, копия в `docs/index.html`).
@@ -36,7 +36,7 @@ npm run typecheck
 npm run zip
 ```
 
-Загружайте `.output/pinterest-plus-plus-1.0.6-chrome.zip`. Это production MV3-пакет, не исходники.
+Загружайте `.output/pinterest-plus-plus-1.0.7-chrome.zip`. Это production MV3-пакет, не исходники.
 
 ## 4. New item
 

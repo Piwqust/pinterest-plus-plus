@@ -1,3 +1,5 @@
+import { chipFor } from './action-chip';
+import { setActionChip } from './media-action-host';
 import { ANY_PIN_SELECTOR, MAX_SCANNED_PINS } from './pin-grid-roots';
 import { findFavoriteControl, findGridItem, findMoreControl } from './pinterest-dom';
 
@@ -19,6 +21,10 @@ interface GridRootSource {
  * that row is preferred over the three-dot menu the hover overlay hides. Where
  * a card offers neither — the `gated-pin-rep` used for gated boards — the
  * buttons are overlaid on the pin image instead.
+ *
+ * A pin without a title has no footer row at all: Pinterest lays that pin's
+ * controls onto the image, where a bare icon is unreadable. Such a row is
+ * detected from the neighbouring control and the buttons take its chip.
  */
 export class PinActionManager {
   private observer = new MutationObserver(() => this.queueScan());
@@ -32,6 +38,9 @@ export class PinActionManager {
   private hosts = new Set<HTMLElement>();
   /** Overlaid hosts stay re-checkable so a late-rendering footer wins them back. */
   private overlaid = new WeakSet<HTMLElement>();
+  /** Anchors are only measurable once their row is painted, i.e. on hover. */
+  private hoverBound = new WeakSet<HTMLElement>();
+  private hostAnchors = new WeakMap<HTMLElement, HTMLElement>();
 
   constructor(
     private grid: GridRootSource,
@@ -126,6 +135,8 @@ export class PinActionManager {
     if (anchor?.parentElement && !anchor.closest('#pinterest-plus-plus-root')) {
       if (existing?.isConnected) this.release(pin, existing);
       this.attachBefore(pin, anchor);
+      this.watchHover(pin);
+      this.refreshChip(pin);
       return;
     }
 
@@ -138,6 +149,7 @@ export class PinActionManager {
     this.pinHosts.set(pin, host);
     this.hosts.add(host);
     this.overlaid.add(host);
+    setActionChip(host, chipFor(pin, null));
   }
 
   /** Places `host` as the sibling immediately before Pinterest's own control. */
@@ -155,11 +167,33 @@ export class PinActionManager {
     anchor.before(host);
     this.anchorHosts.set(anchor, host);
     this.pinHosts.set(pin, host);
+    this.hostAnchors.set(host, anchor);
     this.hosts.add(host);
+  }
+
+  /**
+   * Re-reads the neighbour's chip once the pin is pointed at. Until then a
+   * hover-only row can be unpainted or unmeasurable, so its buttons would keep
+   * the bare look a footer row calls for.
+   */
+  private watchHover(pin: HTMLElement): void {
+    if (this.hoverBound.has(pin)) return;
+    this.hoverBound.add(pin);
+    pin.addEventListener('pointerenter', () => this.refreshChip(pin));
+  }
+
+  private refreshChip(pin: HTMLElement): void {
+    const host = this.pinHosts.get(pin);
+    if (!host?.isConnected) return;
+    const anchor = this.hostAnchors.get(host);
+    // A stale anchor means the row is being rebuilt; the next scan re-attaches.
+    if (anchor && !anchor.isConnected) return;
+    setActionChip(host, chipFor(pin, anchor ?? null));
   }
 
   private release(pin: HTMLElement, host: HTMLElement): void {
     host.remove();
+    this.hostAnchors.delete(host);
     this.hosts.delete(host);
     this.pinHosts.delete(pin);
   }
