@@ -261,9 +261,107 @@ describe('PinActionManager', () => {
     expect(actions.dataset.chip).toBeUndefined();
 
     document.querySelector<HTMLElement>('#more-0')!.style.backgroundColor = 'rgb(255, 255, 255)';
-    pin.dispatchEvent(new Event('pointerenter'));
+    pin.dispatchEvent(new Event('pointerover', { bubbles: true }));
 
     expect(actions.dataset.chip).toBe('true');
     expect(host.style.getPropertyValue('--ppp-chip-bg')).toBe('rgb(255, 255, 255)');
+  });
+
+  it('keeps the buttons out of sight until the card is pointed at', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const root = buildGrid(2);
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    const host = document.querySelector<HTMLElement>('#more-0')!.previousElementSibling as HTMLElement;
+    expect(host.dataset.pppHidden).toBe('true');
+
+    pin.querySelector('img')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    expect(host.dataset.pppHidden).toBeUndefined();
+
+    document.body.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    expect(host.dataset.pppHidden).toBe('true');
+  });
+
+  it('reveals the buttons of the card the pointer moved to, not the one it left', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const root = buildBoardGrid(2);
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const first = document.querySelector<HTMLElement>('#fav-0')!.previousElementSibling as HTMLElement;
+    const second = document.querySelector<HTMLElement>('#fav-1')!.previousElementSibling as HTMLElement;
+
+    // The footer sits beside the pin, so hovering it still counts as the card.
+    document.querySelector('#fav-0')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    expect(first.dataset.pppHidden).toBeUndefined();
+    expect(second.dataset.pppHidden).toBe('true');
+
+    document.querySelector('#pin-1')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    expect(first.dataset.pppHidden).toBe('true');
+    expect(second.dataset.pppHidden).toBeUndefined();
+  });
+
+  it('reveals the buttons for a keyboard user and hides them when focus moves on', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const root = buildGrid(2);
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const host = document.querySelector<HTMLElement>('#more-0')!.previousElementSibling as HTMLElement;
+
+    host.dispatchEvent(new Event('focusin', { bubbles: true }));
+    expect(host.dataset.pppHidden).toBeUndefined();
+
+    document.body.dispatchEvent(new Event('focusin', { bubbles: true }));
+    expect(host.dataset.pppHidden).toBe('true');
+  });
+
+  it('overlaid buttons stay hidden until their card is pointed at', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    document.body.innerHTML = `
+      <main id="grid">
+        <div data-test-id="gated-pin-rep" id="gated-0"><img src="https://i.pinimg.com/236x/a.jpg" /></div>
+        <div data-test-id="gated-pin-rep" id="gated-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div>
+      </main>
+    `;
+    const root = document.querySelector<HTMLElement>('#grid')!;
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#gated-0')!;
+    const host = pin.querySelector<HTMLElement>('[data-ppp-ignore="true"]')!;
+    expect(host.dataset.pppHidden).toBe('true');
+
+    pin.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    expect(host.dataset.pppHidden).toBeUndefined();
+  });
+
+  it('drops its hover tracking when stopped', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const root = buildGrid(2);
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    manager.stop();
+    manager = null;
+
+    expect(() => pin.dispatchEvent(new Event('pointerover', { bubbles: true }))).not.toThrow();
   });
 });

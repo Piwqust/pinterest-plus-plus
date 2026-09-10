@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createMediaActionHost, setActionChip } from '../shared/media-action-host';
+import { createMediaActionHost, setActionChip, setActionsVisible } from '../shared/media-action-host';
 
 function actionsOf(host: HTMLElement): HTMLElement {
   return host.shadowRoot!.querySelector<HTMLElement>('.ppp-pin-actions')!;
@@ -48,5 +48,23 @@ describe('setActionChip', () => {
   it('ignores a host that carries no buttons', () => {
     const bare = document.createElement('span');
     expect(() => setActionChip(bare, null)).not.toThrow();
+  });
+});
+
+describe('setActionsVisible', () => {
+  it("starts a grid tile's pair hidden and a close-up's pair shown", () => {
+    expect(createMediaActionHost('grid', async () => {}).dataset.pppHidden).toBe('true');
+    expect(createMediaActionHost('closeup', async () => {}).dataset.pppHidden).toBeUndefined();
+  });
+
+  it('reveals and hides without touching the room the buttons hold', () => {
+    const host = createMediaActionHost('grid', async () => {});
+    const height = host.style.height;
+
+    setActionsVisible(host, true);
+    expect(host.dataset.pppHidden).toBeUndefined();
+    setActionsVisible(host, false);
+    expect(host.dataset.pppHidden).toBe('true');
+    expect(host.style.height).toBe(height);
   });
 });

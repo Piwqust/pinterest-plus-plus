@@ -29,8 +29,12 @@ export const SHADOW_CSS = `
   button { -webkit-tap-highlight-color: transparent; }
   .ppp-pin-actions {
     display: inline-flex; align-items: center; gap: 6px; margin-right: 2px; padding: 0; line-height: 0; vertical-align: middle;
-    background: transparent;
+    background: transparent; transition: opacity 120ms ease-out;
   }
+  /* A grid tile keeps its buttons out of the way until the pin is pointed at
+     or they take focus, the way Pinterest treats its own tile controls. The
+     room they hold is kept so the row around them does not shift. */
+  :host([data-ppp-hidden="true"]) .ppp-pin-actions { opacity: 0; pointer-events: none; }
   .ppp-action {
     appearance: none; position: relative; isolation: isolate; width: 28px; height: 28px; min-width: 28px; margin: 0; padding: 0; border: 0; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;

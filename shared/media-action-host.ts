@@ -23,6 +23,10 @@ export function button(className: string, label: string, icon: string): HTMLButt
  * Builds the shadow-isolated Copy/Download pair inserted beside a three-dot
  * menu. The close-up sizes its controls to Pinterest's own action bar, which is
  * built from larger buttons than a grid tile's.
+ *
+ * A grid tile's pair starts hidden: like Pinterest's own tile controls it is
+ * revealed only while the pin is pointed at. The close-up's bar is permanent,
+ * so its pair is too.
  */
 export function createMediaActionHost(
   scope: ActionScope,
@@ -37,6 +41,7 @@ export function createMediaActionHost(
   const actions = document.createElement('span');
   actions.className = 'ppp-pin-actions';
   actions.dataset.scope = scope;
+  if (scope === 'grid') host.dataset.pppHidden = 'true';
   const copyButton = button('ppp-action', 'Copy media', ICONS.copy);
   const downloadButton = button('ppp-action', 'Download media', ICONS.download);
   actions.append(copyButton, downloadButton);
@@ -47,6 +52,15 @@ export function createMediaActionHost(
   copyButton.addEventListener('click', () => void onAction('copy', copyButton));
   downloadButton.addEventListener('click', () => void onAction('download', downloadButton));
   return host;
+}
+
+/**
+ * Reveals or hides the buttons without giving up the room they hold, so a row
+ * Pinterest lays out around them does not shift when the pin is pointed at.
+ */
+export function setActionsVisible(host: HTMLElement, visible: boolean): void {
+  if (visible) delete host.dataset.pppHidden;
+  else host.dataset.pppHidden = 'true';
 }
 
 /**
