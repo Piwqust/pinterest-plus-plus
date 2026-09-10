@@ -5,8 +5,12 @@ const PIN_MEDIA_SELECTOR = 'img, video';
 /** Pins are decorated slightly before they scroll into view. */
 const PIN_DECORATION_MARGIN = '300px';
 const SCAN_DEBOUNCE = 350;
-/** Distance from the media's own corner, which Pinterest leaves free. */
-const OVERLAY_INSET = 8;
+/** Inset from the media's bottom-left corner, matching Pinterest's own row. */
+const OVERLAY_INSET = 12;
+/** Gap left between the overlay and a control it had to rise above. */
+const OVERLAY_GAP = 8;
+/** What the overlay refuses to sit on top of inside a pin. */
+const FOREIGN_CONTROL_SELECTOR = 'a[href], button, [role="button"]';
 
 interface GridRootSource {
   getRoots(): HTMLElement[];
@@ -40,6 +44,7 @@ export class PinActionManager {
   private hosts = new Set<HTMLElement>();
   private hovered: HTMLElement | null = null;
   private focused: HTMLElement | null = null;
+  private placeQueued = false;
 
   constructor(
     private grid: GridRootSource,
@@ -78,7 +83,10 @@ export class PinActionManager {
   private onMutations(): void {
     // A pin re-rendered under the pointer would otherwise stand without its
     // buttons until the debounced scan comes round.
-    if (this.hovered?.isConnected) this.decorate(this.hovered);
+    if (this.hovered?.isConnected) {
+      this.decorate(this.hovered);
+      this.schedulePlace();
+    }
     this.queueScan();
   }
 
@@ -141,9 +149,9 @@ export class PinActionManager {
     host.style.zIndex = '3';
     host.style.pointerEvents = 'auto';
     this.frameFor(pin, media).append(host);
-    this.place(host, media);
     this.pinHosts.set(pin, host);
     this.hosts.add(host);
+    this.placeFor(pin);
     this.settle(pin);
   }
 
@@ -161,11 +169,60 @@ export class PinActionManager {
     return pin;
   }
 
-  /** Pins the overlay to the media's own top-left corner within its frame. */
-  private place(host: HTMLElement, media: HTMLElement): void {
-    const sameFrame = media.offsetParent !== null && media.offsetParent === host.offsetParent;
-    host.style.top = `${(sameFrame ? media.offsetTop : 0) + OVERLAY_INSET}px`;
-    host.style.left = `${(sameFrame ? media.offsetLeft : 0) + OVERLAY_INSET}px`;
+  /**
+   * Pins the overlay to the media's bottom-left corner within its frame, which
+   * puts it on the line Pinterest's own controls sit on, at the far end of it.
+   */
+  private placeFor(pin: HTMLElement): void {
+    const host = this.pinHosts.get(pin);
+    const media = pin.querySelector<HTMLElement>(PIN_MEDIA_SELECTOR);
+    if (!host?.isConnected || !media) return;
+    const frame = host.offsetParent as HTMLElement | null;
+    const sameFrame = frame !== null && media.offsetParent === frame;
+    const left = (sameFrame ? media.offsetLeft : 0) + OVERLAY_INSET;
+    // A frame can hold more than the media — a footer under it, say — so the
+    // overlay is measured up from the media's own bottom edge.
+    const bottom = (sameFrame ? frame.offsetHeight - media.offsetTop - media.offsetHeight : 0)
+      + OVERLAY_INSET;
+    host.style.left = `${left}px`;
+    host.style.bottom = `${bottom}px`;
+    const lift = this.clearance(pin, host);
+    if (lift > 0) host.style.bottom = `${bottom + lift}px`;
+  }
+
+  /**
+   * How far the overlay has to rise to clear a control of Pinterest's that
+   * shares its corner — the "Visit site" pill a linked pin carries, or their
+   * own row on a tile too narrow to hold both. Only our box ever moves.
+   */
+  private clearance(pin: HTMLElement, host: HTMLElement): number {
+    const box = host.getBoundingClientRect();
+    if (!box.width || !box.height) return 0;
+    let lift = 0;
+    for (const control of pin.querySelectorAll<HTMLElement>(FOREIGN_CONTROL_SELECTOR)) {
+      if (control === host || host.contains(control) || control.contains(host)) continue;
+      const rect = control.getBoundingClientRect();
+      if (!rect.width || !rect.height) continue;
+      if (rect.left >= box.right || rect.right <= box.left) continue;
+      if (rect.top >= box.bottom || rect.bottom <= box.top) continue;
+      lift = Math.max(lift, box.bottom - rect.top + OVERLAY_GAP);
+    }
+    return lift;
+  }
+
+  /**
+   * Pinterest mounts a tile's own overlay as the hover starts, so where its
+   * controls are is only known a frame later. One coalesced re-measure covers
+   * that without the placement chasing every mutation.
+   */
+  private schedulePlace(): void {
+    if (this.placeQueued || typeof requestAnimationFrame !== 'function') return;
+    this.placeQueued = true;
+    requestAnimationFrame(() => {
+      this.placeQueued = false;
+      const pin = this.hovered;
+      if (pin?.isConnected) this.placeFor(pin);
+    });
   }
 
   private onPointerOver = (event: Event): void => {
@@ -214,10 +271,10 @@ export class PinActionManager {
     const host = this.pinHosts.get(pin);
     if (!host?.isConnected) return;
     const visible = this.hovered === pin || this.focused === pin;
+    // The media may have loaded, or the grid been resized, since the last look.
     if (visible) {
-      // The media may have loaded, or the grid been resized, since the last look.
-      const media = pin.querySelector<HTMLElement>(PIN_MEDIA_SELECTOR);
-      if (media) this.place(host, media);
+      this.placeFor(pin);
+      this.schedulePlace();
     }
     setActionsVisible(host, visible);
   }

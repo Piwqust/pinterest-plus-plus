@@ -60,6 +60,21 @@ function stubHover(target: Element | null): () => void {
   return () => { Element.prototype.matches = original; };
 }
 
+/** jsdom measures nothing, so a test states the rects placement depends on. */
+function stubRect(element: Element, rect: { x: number; y: number; width: number; height: number }): void {
+  element.getBoundingClientRect = () => ({
+    x: rect.x,
+    y: rect.y,
+    left: rect.x,
+    top: rect.y,
+    right: rect.x + rect.width,
+    bottom: rect.y + rect.height,
+    width: rect.width,
+    height: rect.height,
+    toJSON: () => ({}),
+  }) as DOMRect;
+}
+
 function hostIn(pin: Element): HTMLElement | null {
   return pin.querySelector<HTMLElement>('[data-ppp-ignore="true"]');
 }
@@ -178,8 +193,8 @@ describe('PinActionManager', () => {
     // Nothing of Pinterest's is a sibling, an ancestor or a neighbour of ours.
     expect(host.closest('.overlay')).toBeNull();
     expect(host.style.position).toBe('absolute');
-    expect(host.style.top).toBe('8px');
-    expect(host.style.left).toBe('8px');
+    expect(host.style.bottom).toBe('12px');
+    expect(host.style.left).toBe('12px');
     expect(pin.querySelector('.overlay')!.children.length).toBe(2);
   });
 
@@ -321,5 +336,58 @@ describe('PinActionManager', () => {
 
     expect(() => pointerOver(pin)).not.toThrow();
     expect(hostsInDocument()).toBe(0);
+  });
+
+  it('rises above a control of Pinterest`s that shares its corner', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    document.body.innerHTML = `
+      <main id="grid">
+        <article><div data-test-id="pinWrapper" id="pin-0">
+          <img src="https://i.pinimg.com/236x/a.jpg" />
+          <a href="https://example.com" id="visit">Visit site</a>
+        </div></article>
+        <article><div data-test-id="pinWrapper" id="pin-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div></article>
+      </main>
+    `;
+    const root = document.querySelector<HTMLElement>('#grid')!;
+    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    const host = hostIn(pin)!;
+    // The pill Pinterest draws for a linked pin lands on the same corner.
+    stubRect(host, { x: 12, y: 268, width: 64, height: 32 });
+    stubRect(document.querySelector('#visit')!, { x: 12, y: 260, width: 90, height: 30 });
+
+    pointerOver(pin);
+
+    // Cleared by the overlap plus the gap: 300 - 260 + 8.
+    expect(host.style.bottom).toBe('60px');
+  });
+
+  it('leaves the overlay where it is when the corner is free', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    document.body.innerHTML = `
+      <main id="grid">
+        <article><div data-test-id="pinWrapper" id="pin-0">
+          <img src="https://i.pinimg.com/236x/a.jpg" />
+          <button id="more" aria-label="More options"></button>
+        </div></article>
+        <article><div data-test-id="pinWrapper" id="pin-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div></article>
+      </main>
+    `;
+    const root = document.querySelector<HTMLElement>('#grid')!;
+    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    const host = hostIn(pin)!;
+    stubRect(host, { x: 12, y: 268, width: 64, height: 32 });
+    // Their own row sits at the other end of the same line.
+    stubRect(document.querySelector('#more')!, { x: 180, y: 264, width: 40, height: 40 });
+
+    pointerOver(pin);
+
+    expect(host.style.bottom).toBe('12px');
   });
 });
