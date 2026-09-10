@@ -1,56 +1,43 @@
-import { chipFor } from './action-chip';
-import { setActionChip, setActionsVisible } from './media-action-host';
+import { setActionsVisible } from './media-action-host';
 import { ANY_PIN_SELECTOR, MAX_SCANNED_PINS } from './pin-grid-roots';
-import { findFavoriteControl, findGridItem, findMoreControl } from './pinterest-dom';
 
 const PIN_MEDIA_SELECTOR = 'img, video';
 /** Pins are decorated slightly before they scroll into view. */
 const PIN_DECORATION_MARGIN = '300px';
 const SCAN_DEBOUNCE = 350;
-/** How far above a hovered node the card that owns it is looked for. */
-const HOVER_LOOKUP_DEPTH = 16;
+/** Distance from the media's own corner, which Pinterest leaves free. */
+const OVERLAY_INSET = 8;
 
 interface GridRootSource {
   getRoots(): HTMLElement[];
 }
 
+function isPositioned(element: HTMLElement): boolean {
+  const position = getComputedStyle(element).position;
+  return position !== '' && position !== 'static';
+}
+
 /**
- * Adds an extension-owned control beside each pin's three-dot menu. Decoration
- * waits until a pin approaches the viewport, and the caller's factory decides
- * what the control contains, so a deep feed only pays for what is on screen.
+ * Lays an extension-owned pair of buttons over each pin's media, in the corner
+ * Pinterest keeps free, and shows it only while that pin is pointed at or the
+ * buttons hold focus. Decoration waits until a pin approaches the viewport, so
+ * a deep feed only pays for what is on screen.
  *
- * A board pin carries a favourite star in its always-visible footer row, and
- * that row is preferred over the three-dot menu the hover overlay hides. Where
- * a card offers neither — the `gated-pin-rep` used for gated boards — the
- * buttons are overlaid on the pin image instead.
- *
- * A pin without a title has no footer row at all: Pinterest lays that pin's
- * controls onto the image, where a bare icon is unreadable. Such a row is
- * detected from the neighbouring control and the buttons take its chip.
- *
- * Like Pinterest's own tile controls, the buttons stay hidden until the card
- * they belong to is pointed at or they take keyboard focus. One delegated
- * listener serves the whole feed, since a virtualized grid recycles its cards.
+ * The buttons take no part in Pinterest's own layout, by design. Inserting
+ * them into a tile's control row meant re-inserting them every time that row
+ * was rebuilt — which Pinterest does on every hover — and a row that could not
+ * fit them wrapped its own controls onto a second line. A box positioned
+ * absolutely inside the pin cannot move anything of Pinterest's, whatever the
+ * tile turns out to be made of.
  */
 export class PinActionManager {
   private observer = new MutationObserver(() => this.onMutations());
   private intersection: IntersectionObserver | null = null;
   private scanTimer: number | undefined;
-  private anchorHosts = new WeakMap<HTMLElement, HTMLElement>();
   private pinHosts = new WeakMap<HTMLElement, HTMLElement>();
-  private pinRoots = new WeakMap<HTMLElement, HTMLElement>();
   private enrolled = new WeakSet<HTMLElement>();
   private nearViewport = new Set<HTMLElement>();
   private hosts = new Set<HTMLElement>();
-  /** Overlaid hosts stay re-checkable so a late-rendering footer wins them back. */
-  private overlaid = new WeakSet<HTMLElement>();
-  /** Pins that have held a control of their own at least once. */
-  private anchored = new WeakSet<HTMLElement>();
-  /** Overlaid hosts waiting out the frame a hover row would arrive in. */
-  private pendingReveal = new WeakSet<HTMLElement>();
-  private hostAnchors = new WeakMap<HTMLElement, HTMLElement>();
-  /** Every node a pointer can land on that belongs to a decorated card. */
-  private cardPins = new WeakMap<HTMLElement, HTMLElement>();
   private hovered: HTMLElement | null = null;
   private focused: HTMLElement | null = null;
 
@@ -89,8 +76,8 @@ export class PinActionManager {
   }
 
   private onMutations(): void {
-    // The row under the pointer is rebuilt as part of hovering, and our buttons
-    // go with it, so that one card cannot wait for the debounced scan.
+    // A pin re-rendered under the pointer would otherwise stand without its
+    // buttons until the debounced scan comes round.
     if (this.hovered?.isConnected) this.decorate(this.hovered);
     this.queueScan();
   }
@@ -119,8 +106,6 @@ export class PinActionManager {
     for (const root of this.grid.getRoots()) {
       const pins = Array.from(root.querySelectorAll<HTMLElement>(ANY_PIN_SELECTOR)).slice(0, MAX_SCANNED_PINS);
       for (const pin of pins) {
-        this.pinRoots.set(pin, root);
-        if (this.isSettled(pin)) continue;
         if (!this.intersection) {
           this.decorate(pin);
           continue;
@@ -131,14 +116,11 @@ export class PinActionManager {
       }
     }
 
-    // Pinterest discards a hover row wholesale, so hosts it took with it are
-    // dropped here rather than held for the life of the page.
+    // Pinterest can re-render a pin and drop what it does not own, so hosts it
+    // discarded are let go of here and the pins that lost them decorated again.
     for (const host of this.hosts) {
       if (!host.isConnected) this.hosts.delete(host);
     }
-
-    // A pin can gain its footer or menu control after the observer already
-    // reported it, so retry the small set that is currently near the viewport.
     for (const pin of this.nearViewport) {
       if (!pin.isConnected) {
         this.nearViewport.delete(pin);
@@ -148,87 +130,46 @@ export class PinActionManager {
     }
   }
 
-  /** A pin is settled once it holds a host anchored to a control of its own. */
-  private isSettled(pin: HTMLElement): boolean {
-    const host = this.pinHosts.get(pin);
-    return host !== undefined && host.isConnected && !this.overlaid.has(host);
-  }
-
   private decorate(pin: HTMLElement): void {
-    if (!pin.isConnected || this.isSettled(pin)) return;
-    const existing = this.pinHosts.get(pin);
-    const root = this.pinRoots.get(pin);
-    if (!root?.isConnected) return;
-    // Presence is enough to justify the control; the full candidate list is
-    // only built when the user actually clicks it.
-    if (!pin.querySelector(PIN_MEDIA_SELECTOR)) return;
-    const item = findGridItem(pin, root);
-    // The buttons can end up outside the pin itself, in a footer beside it, so
-    // the whole card counts as the surface that reveals them.
-    this.cardPins.set(item, pin);
-    this.cardPins.set(pin, pin);
-    const anchor = findFavoriteControl(item) ?? findMoreControl(item);
-
-    if (anchor?.parentElement && !anchor.closest('#pinterest-plus-plus-root')) {
-      if (existing?.isConnected) this.release(pin, existing);
-      this.anchored.add(pin);
-      this.attachBefore(pin, anchor);
-      this.refreshChip(pin);
-      this.settle(pin, item);
-      return;
-    }
-
-    if (existing?.isConnected) return;
-    // A tile whose controls only exist while it is hovered loses ours with
-    // them; the next hover rebuilds the row and re-anchors, so an overlay in
-    // the meantime would only churn hosts behind a hidden card.
-    if (this.anchored.has(pin)) return;
-    // Last resort for a card that offers no control of its own: overlay the
-    // buttons on the pin image so its media stays reachable.
+    if (!pin.isConnected || this.pinHosts.get(pin)?.isConnected) return;
+    // Presence is enough to justify the buttons; the full candidate list is
+    // only built when the user actually clicks one.
+    const media = pin.querySelector<HTMLElement>(PIN_MEDIA_SELECTOR);
+    if (!media) return;
     const host = this.createHost(pin);
-    this.applyOverlayStyle(host, pin);
-    pin.append(host);
+    host.style.position = 'absolute';
+    host.style.zIndex = '3';
+    host.style.pointerEvents = 'auto';
+    this.frameFor(pin, media).append(host);
+    this.place(host, media);
     this.pinHosts.set(pin, host);
     this.hosts.add(host);
-    this.overlaid.add(host);
-    setActionChip(host, chipFor(pin, null));
-    this.settle(pin, pin);
+    this.settle(pin);
   }
 
   /**
-   * Brings a freshly attached host to the state its card is already in. The
-   * pointer may have been resting on the card since before it was decorated,
-   * which no move of its own will ever report.
+   * The box the overlay is positioned against: the nearest ancestor of the
+   * media that is positioned already. Only a pin that positions nothing at all
+   * is given a style of ours, and the least intrusive one there is.
    */
-  private settle(pin: HTMLElement, card: HTMLElement): void {
-    if (this.hovered !== pin && this.isPointedAt(card)) this.setActiveCard('hovered', pin);
-    else this.syncVisibility(pin);
+  private frameFor(pin: HTMLElement, media: HTMLElement): HTMLElement {
+    for (let node = media.parentElement; node; node = node.parentElement) {
+      if (isPositioned(node)) return node;
+      if (node === pin) break;
+    }
+    if (!isPositioned(pin)) pin.style.position = 'relative';
+    return pin;
   }
 
-  /** Places `host` as the sibling immediately before Pinterest's own control. */
-  private attachBefore(pin: HTMLElement, anchor: HTMLElement): void {
-    const existingHost = this.anchorHosts.get(anchor);
-    if (existingHost) {
-      if (!existingHost.isConnected || existingHost.nextElementSibling !== anchor) {
-        anchor.before(existingHost);
-      }
-      this.pinHosts.set(pin, existingHost);
-      return;
-    }
-
-    const host = this.createHost(pin);
-    anchor.before(host);
-    this.anchorHosts.set(anchor, host);
-    this.pinHosts.set(pin, host);
-    this.hostAnchors.set(host, anchor);
-    this.hosts.add(host);
+  /** Pins the overlay to the media's own top-left corner within its frame. */
+  private place(host: HTMLElement, media: HTMLElement): void {
+    const sameFrame = media.offsetParent !== null && media.offsetParent === host.offsetParent;
+    host.style.top = `${(sameFrame ? media.offsetTop : 0) + OVERLAY_INSET}px`;
+    host.style.left = `${(sameFrame ? media.offsetLeft : 0) + OVERLAY_INSET}px`;
   }
 
   private onPointerOver = (event: Event): void => {
-    const pin = this.cardFrom(event.target);
-    // Pinterest rebuilds a tile's overlay row on every hover and takes our
-    // buttons with it. Re-decorating the card under the pointer right away is
-    // what keeps them there; the debounced scan is only a backstop.
+    const pin = this.pinFrom(event.target);
     if (pin) this.decorate(pin);
     this.setActiveCard('hovered', pin);
   };
@@ -239,36 +180,12 @@ export class PinActionManager {
   };
 
   private onFocusIn = (event: Event): void => {
-    this.setActiveCard('focused', this.cardFrom(event.target));
+    this.setActiveCard('focused', this.pinFrom(event.target));
   };
 
-  /** The pin owning the node under the pointer, if there is one. */
-  private cardFrom(target: EventTarget | null): HTMLElement | null {
-    const element = target instanceof Element ? target : null;
-    if (!element) return null;
-    let node: HTMLElement | null = element as HTMLElement;
-    for (let depth = 0; node && depth < HOVER_LOOKUP_DEPTH; depth += 1, node = node.parentElement) {
-      const pin = this.cardPins.get(node);
-      if (pin?.isConnected) return pin;
-    }
-    // A card the scan has not reached yet is still worth decorating on sight.
-    return element.closest<HTMLElement>(ANY_PIN_SELECTOR);
-  }
-
-  private isActive(pin: HTMLElement): boolean {
-    return pin === this.hovered || pin === this.focused;
-  }
-
-  /**
-   * A card is decorated lazily, so the pointer can already be resting on it
-   * with no move left to report. Asking the card itself covers that.
-   */
-  private isPointedAt(card: HTMLElement): boolean {
-    try {
-      return card.matches(':hover');
-    } catch {
-      return false;
-    }
+  private pinFrom(target: EventTarget | null): HTMLElement | null {
+    if (!(target instanceof Element)) return null;
+    return target.closest<HTMLElement>(ANY_PIN_SELECTOR);
   }
 
   private setActiveCard(kind: 'hovered' | 'focused', pin: HTMLElement | null): void {
@@ -279,69 +196,37 @@ export class PinActionManager {
   }
 
   /**
-   * Puts a card's buttons in the state the pointer and focus say they should
-   * be in. Every path that can change either ends here, so a host that was
-   * just rebuilt is never left in the state the one before it happened to be.
+   * Brings a freshly attached host to the state its pin is already in. The
+   * pointer can have been resting on the pin since before it was decorated,
+   * which no move of its own will ever report.
+   */
+  private settle(pin: HTMLElement): void {
+    if (this.hovered !== pin && this.isPointedAt(pin)) this.setActiveCard('hovered', pin);
+    else this.syncVisibility(pin);
+  }
+
+  /**
+   * Puts a pin's buttons in the state the pointer and focus say they are in.
+   * Every path that can change either ends here, so a host that was just
+   * rebuilt is never left in the state the one before it happened to hold.
    */
   private syncVisibility(pin: HTMLElement): void {
     const host = this.pinHosts.get(pin);
     if (!host?.isConnected) return;
-    if (!this.isActive(pin)) {
-      setActionsVisible(host, false);
-      return;
+    const visible = this.hovered === pin || this.focused === pin;
+    if (visible) {
+      // The media may have loaded, or the grid been resized, since the last look.
+      const media = pin.querySelector<HTMLElement>(PIN_MEDIA_SELECTOR);
+      if (media) this.place(host, media);
     }
-    // An overlaid host is what a card gets while no row of its own has been
-    // seen. Pinterest mounts that row in the frame the hover starts, so a
-    // frame's grace keeps the buttons from flashing in the corner first.
-    if (this.overlaid.has(host)) {
-      this.revealOverlaid(pin, host);
-      return;
+    setActionsVisible(host, visible);
+  }
+
+  private isPointedAt(pin: HTMLElement): boolean {
+    try {
+      return pin.matches(':hover');
+    } catch {
+      return false;
     }
-    this.show(pin, host);
-  }
-
-  private revealOverlaid(pin: HTMLElement, host: HTMLElement): void {
-    if (this.pendingReveal.has(host) || typeof requestAnimationFrame !== 'function') {
-      if (!this.pendingReveal.has(host)) this.show(pin, host);
-      return;
-    }
-    this.pendingReveal.add(host);
-    requestAnimationFrame(() => {
-      this.pendingReveal.delete(host);
-      // The row may have arrived and taken the buttons with it by now.
-      if (host.isConnected && this.pinHosts.get(pin) === host && this.isActive(pin)) this.show(pin, host);
-    });
-  }
-
-  private show(pin: HTMLElement, host: HTMLElement): void {
-    setActionsVisible(host, true);
-    // A row Pinterest paints on hover is only measurable now that it is drawn.
-    this.refreshChip(pin);
-  }
-
-  private refreshChip(pin: HTMLElement): void {
-    const host = this.pinHosts.get(pin);
-    if (!host?.isConnected) return;
-    const anchor = this.hostAnchors.get(host);
-    // A stale anchor means the row is being rebuilt; the next scan re-attaches.
-    if (anchor && !anchor.isConnected) return;
-    setActionChip(host, chipFor(pin, anchor ?? null));
-  }
-
-  private release(pin: HTMLElement, host: HTMLElement): void {
-    host.remove();
-    this.hostAnchors.delete(host);
-    this.hosts.delete(host);
-    this.pinHosts.delete(pin);
-  }
-
-  private applyOverlayStyle(host: HTMLElement, pin: HTMLElement): void {
-    host.style.position = 'absolute';
-    host.style.bottom = '6px';
-    host.style.right = '6px';
-    host.style.zIndex = '10';
-    host.style.pointerEvents = 'auto';
-    // The overlay is anchored to the pin, which Pinterest may leave static.
-    if (getComputedStyle(pin).position === 'static') pin.style.position = 'relative';
   }
 }

@@ -3,18 +3,6 @@ const CONTROL_ROOT_SELECTOR = 'button, [role="button"], a';
 const MORE_IDENTITY = /^(more|more actions?|more options?|overflow|overflow menu|ellipsis|\.{3})$/i;
 const MORE_IDENTITY_PART = /\b(more actions?|more options?|overflow menu)\b/i;
 
-const ANY_PIN_SELECTOR = '[data-test-id="pinWrapper"], [data-test-id="gated-pin-rep"]';
-
-export function findGridItem(pin: HTMLElement, root: HTMLElement): HTMLElement {
-  let item = pin;
-  while (item.parentElement && item.parentElement !== root) {
-    const parent = item.parentElement;
-    if (parent.querySelectorAll(ANY_PIN_SELECTOR).length !== 1) break;
-    item = parent;
-  }
-  return item;
-}
-
 function controlIdentity(control: HTMLElement): string {
   return [
     control.getAttribute('aria-label'),
@@ -42,20 +30,4 @@ export function findMoreControl(
     return control;
   }
   return null;
-}
-
-const FAVORITE_STAR_SELECTOR = '[data-test-id="favorite-button-star"]';
-const FAVORITE_ROW_SELECTOR = '[data-test-favorited]';
-
-/**
- * The favourite star Pinterest renders in a board pin's footer row. The star is
- * returned as the element that row actually lays out — the wrapper Pinterest
- * stamps `data-test-favorited` on — so a control inserted before it becomes the
- * star's sibling in the footer instead of a sibling of the icon inside it.
- */
-export function findFavoriteControl(item: HTMLElement): HTMLElement | null {
-  const star = item.querySelector<HTMLElement>(FAVORITE_STAR_SELECTOR);
-  if (!star || star.closest('[data-ppp-ignore="true"]')) return null;
-  const row = star.closest<HTMLElement>(FAVORITE_ROW_SELECTOR);
-  return row && item.contains(row) ? row : star;
 }

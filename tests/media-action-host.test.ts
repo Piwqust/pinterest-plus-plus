@@ -1,70 +1,56 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { createMediaActionHost, setActionChip, setActionsVisible } from '../shared/media-action-host';
+import { describe, expect, it } from 'vitest';
+import { createMediaActionHost, setActionsVisible } from '../shared/media-action-host';
 
 function actionsOf(host: HTMLElement): HTMLElement {
   return host.shadowRoot!.querySelector<HTMLElement>('.ppp-pin-actions')!;
 }
 
-describe('setActionChip', () => {
-  let host: HTMLElement;
-
-  beforeEach(() => {
-    host = createMediaActionHost('grid', async () => {});
-  });
-
-  it('leaves the buttons bare until a chip is asked for', () => {
-    expect(actionsOf(host).dataset.chip).toBeUndefined();
-  });
-
-  it("wears the neighbour's measurements", () => {
-    setActionChip(host, { background: 'rgb(255, 255, 255)', radius: '12px', size: 40 });
-
-    expect(actionsOf(host).dataset.chip).toBe('true');
-    expect(host.style.getPropertyValue('--ppp-chip-bg')).toBe('rgb(255, 255, 255)');
-    expect(host.style.getPropertyValue('--ppp-chip-radius')).toBe('12px');
-    expect(host.style.getPropertyValue('--ppp-chip-size')).toBe('40px');
-    expect(host.style.getPropertyValue('--ppp-chip-icon')).toBe('22px');
-    // The row reserves the host's height, so an unresized host would clip.
-    expect(host.style.height).toBe('40px');
-  });
-
-  it('falls back to a chip of its own size when the neighbour was unmeasurable', () => {
-    setActionChip(host, { background: '#ffffff', radius: '50%' });
-
-    expect(host.style.getPropertyValue('--ppp-chip-size')).toBe('32px');
-    expect(host.style.height).toBe('32px');
-  });
-
-  it('returns to bare icons at a pin that grew a footer row', () => {
-    setActionChip(host, { background: '#ffffff', radius: '50%', size: 40 });
-    setActionChip(host, null);
-
-    expect(actionsOf(host).dataset.chip).toBeUndefined();
-    expect(host.style.getPropertyValue('--ppp-chip-bg')).toBe('');
-    expect(host.style.getPropertyValue('--ppp-chip-size')).toBe('');
-    expect(host.style.height).toBe('28px');
-  });
-
-  it('ignores a host that carries no buttons', () => {
-    const bare = document.createElement('span');
-    expect(() => setActionChip(bare, null)).not.toThrow();
-  });
-});
-
-describe('setActionsVisible', () => {
-  it("starts a grid tile's pair hidden and a close-up's pair shown", () => {
+describe('createMediaActionHost', () => {
+  it('starts a grid tile pair hidden and a close-up pair shown', () => {
     expect(createMediaActionHost('grid', async () => {}).dataset.pppHidden).toBe('true');
     expect(createMediaActionHost('closeup', async () => {}).dataset.pppHidden).toBeUndefined();
   });
 
-  it('reveals and hides without touching the room the buttons hold', () => {
+  it('carries the scope so the stylesheet can size the pair', () => {
+    expect(actionsOf(createMediaActionHost('grid', async () => {})).dataset.scope).toBe('grid');
+    expect(actionsOf(createMediaActionHost('closeup', async () => {})).dataset.scope).toBe('closeup');
+  });
+
+  it('runs the action for the button that was pressed', () => {
+    const ran: string[] = [];
+    const host = createMediaActionHost('grid', async (action) => { ran.push(action); });
+
+    for (const pressed of actionsOf(host).querySelectorAll<HTMLButtonElement>('.ppp-action')) pressed.click();
+
+    expect(ran).toEqual(['copy', 'download']);
+  });
+
+  it('keeps the click off the link the pin is wrapped in', () => {
+    const link = document.createElement('a');
+    link.href = 'https://www.pinterest.com/pin/1/';
     const host = createMediaActionHost('grid', async () => {});
-    const height = host.style.height;
+    link.append(host);
+    document.body.append(link);
+    let opened = 0;
+    link.addEventListener('click', () => { opened += 1; });
+
+    // A real click crosses the shadow boundary; a synthetic one must say so.
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true });
+    actionsOf(host).querySelector<HTMLButtonElement>('.ppp-action')!.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(opened).toBe(0);
+    link.remove();
+  });
+});
+
+describe('setActionsVisible', () => {
+  it('reveals and hides through the host, whatever it is laid over', () => {
+    const host = createMediaActionHost('grid', async () => {});
 
     setActionsVisible(host, true);
     expect(host.dataset.pppHidden).toBeUndefined();
     setActionsVisible(host, false);
     expect(host.dataset.pppHidden).toBe('true');
-    expect(host.style.height).toBe(height);
   });
 });

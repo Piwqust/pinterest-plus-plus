@@ -32,8 +32,7 @@ export const SHADOW_CSS = `
     background: transparent; transition: opacity 120ms ease-out;
   }
   /* A grid tile keeps its buttons out of the way until the pin is pointed at
-     or they take focus, the way Pinterest treats its own tile controls. The
-     room they hold is kept so the row around them does not shift. */
+     or they take focus, the way Pinterest treats its own tile controls. */
   :host([data-ppp-hidden="true"]) .ppp-pin-actions { opacity: 0; pointer-events: none; }
   .ppp-action {
     appearance: none; position: relative; isolation: isolate; width: 28px; height: 28px; min-width: 28px; margin: 0; padding: 0; border: 0; border-radius: 50%;
@@ -56,29 +55,14 @@ export const SHADOW_CSS = `
   .ppp-action:disabled { cursor: wait; opacity: .58; }
   .ppp-action svg, .ppp-reset svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .ppp-action span { display: none; }
-  /* A pin without a title has no footer, so Pinterest lays its controls onto
-     the image and gives each one a chip. Bare icons vanish into a photo there,
-     so ours wear the chip the neighbouring control was measured to paint. */
-  .ppp-pin-actions[data-chip="true"] { gap: 4px; }
-  .ppp-pin-actions[data-chip="true"] .ppp-action {
-    width: var(--ppp-chip-size, 32px); height: var(--ppp-chip-size, 32px); min-width: var(--ppp-chip-size, 32px);
-    border-radius: var(--ppp-chip-radius, 50%);
-    color: var(--ppp-ink); background: var(--ppp-chip-bg, #ffffff);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .24);
-    transition: box-shadow 140ms ease-out, transform 140ms ease-out;
+  /* On the grid the pair floats over a pin's own media, so it carries the
+     surface the extension uses elsewhere rather than borrowing Pinterest's. */
+  .ppp-pin-actions[data-scope="grid"] {
+    gap: 2px; margin: 0; padding: 2px;
+    border: 1px solid var(--ppp-border); border-radius: 9px;
+    background: var(--ppp-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
   }
-  .ppp-pin-actions[data-chip="true"] .ppp-action svg { width: var(--ppp-chip-icon, 18px); height: var(--ppp-chip-icon, 18px); }
-  /* The chip is opaque, so the shared hover layer would sit behind it; an inset
-     shadow paints over the chip and under the icon instead. */
-  .ppp-pin-actions[data-chip="true"] .ppp-action::before { display: none; }
-  @media (hover: hover) and (pointer: fine) {
-    .ppp-pin-actions[data-chip="true"] .ppp-action:hover {
-      box-shadow: 0 1px 3px rgba(0, 0, 0, .24), inset 0 0 0 999px rgba(0, 0, 0, .09);
-    }
-  }
-  .ppp-pin-actions[data-chip="true"] .ppp-action:active {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .24), inset 0 0 0 999px rgba(0, 0, 0, .14);
-  }
+  .ppp-pin-actions[data-scope="grid"] .ppp-action { border-radius: 7px; }
   /* The close-up's action bar is built from larger controls than a grid tile's. */
   .ppp-pin-actions[data-scope="closeup"] { gap: 4px; margin-right: 0; }
   .ppp-pin-actions[data-scope="closeup"] .ppp-action { width: 40px; height: 40px; min-width: 40px; }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { findGridItem, findMoreControl } from '../shared/pinterest-dom';
+import { findMoreControl } from '../shared/pinterest-dom';
 
 describe('Pinterest action scoping', () => {
   beforeEach(() => {
@@ -38,19 +38,6 @@ describe('Pinterest action scoping', () => {
 
     expect(findMoreControl(card, (control) => !control.closest('[data-test-id="pinWrapper"]'))?.id)
       .toBe('card-more');
-  });
-
-  it('returns the single-pin branch without swallowing neighboring pins', () => {
-    document.body.innerHTML = `
-      <main id="grid">
-        <section id="first"><article><div><div data-test-id="pinWrapper" id="pin-a"></div></div></article></section>
-        <section><article><div data-test-id="pinWrapper" id="pin-b"></div></article></section>
-      </main>
-    `;
-    const root = document.querySelector<HTMLElement>('#grid')!;
-    const pin = document.querySelector<HTMLElement>('#pin-a')!;
-
-    expect(findGridItem(pin, root).id).toBe('first');
   });
 
 });
