@@ -68,6 +68,23 @@ function buildBoardGrid(pinCount: number, withStar = true): HTMLElement {
   return document.querySelector<HTMLElement>('#grid')!;
 }
 
+/**
+ * jsdom never matches `:hover`, so a browser's answer is stood in for: every
+ * ancestor of the pointed-at node reports itself as hovered.
+ */
+function stubHover(target: Element | null): () => void {
+  const original = Element.prototype.matches;
+  Element.prototype.matches = function matches(this: Element, selector: string): boolean {
+    if (selector === ':hover') return target !== null && this.contains(target);
+    return original.call(this, selector);
+  };
+  return () => { Element.prototype.matches = original; };
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => { requestAnimationFrame(() => resolve()); });
+}
+
 function hostsInDocument(): number {
   return document.querySelectorAll('[data-ppp-ignore="true"]').length;
 }
@@ -75,6 +92,8 @@ function hostsInDocument(): number {
 describe('PinActionManager', () => {
   let manager: PinActionManager | null = null;
   let created: HTMLElement[] = [];
+  /** Restores anything a test stubbed on the prototype. */
+  const afterHover: Array<() => void> = [];
 
   const createHost = (): HTMLElement => {
     const host = document.createElement('span');
@@ -90,6 +109,7 @@ describe('PinActionManager', () => {
   });
 
   afterEach(() => {
+    for (const restore of afterHover.splice(0)) restore();
     manager?.stop();
     manager = null;
     vi.unstubAllGlobals();
@@ -327,7 +347,7 @@ describe('PinActionManager', () => {
     expect(host.dataset.pppHidden).toBe('true');
   });
 
-  it('overlaid buttons stay hidden until their card is pointed at', () => {
+  it('overlaid buttons stay hidden until their card is pointed at', async () => {
     vi.stubGlobal('IntersectionObserver', undefined);
     document.body.innerHTML = `
       <main id="grid">
@@ -347,6 +367,10 @@ describe('PinActionManager', () => {
     expect(host.dataset.pppHidden).toBe('true');
 
     pin.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    // An overlay waits out the frame a hover row of Pinterest's own would
+    // arrive in, so that it never flashes in the corner first.
+    expect(host.dataset.pppHidden).toBe('true');
+    await nextFrame();
     expect(host.dataset.pppHidden).toBeUndefined();
   });
 
@@ -363,5 +387,118 @@ describe('PinActionManager', () => {
     manager = null;
 
     expect(() => pin.dispatchEvent(new Event('pointerover', { bubbles: true }))).not.toThrow();
+  });
+
+  it('reveals buttons re-attached while the card is already hovered', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const root = buildGrid(2);
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    const article = pin.closest('article')!;
+    pin.dispatchEvent(new Event('pointerover', { bubbles: true }));
+
+    // Pinterest rebuilds the hover row, taking our buttons with it. The card
+    // was already the hovered one, so nothing about the hover state changes.
+    document.querySelector('#more-0')!.previousElementSibling!.remove();
+    document.querySelector('#more-0')!.remove();
+    article.insertAdjacentHTML('beforeend', '<button aria-label="More options" id="more-0"></button>');
+    await Promise.resolve();
+
+    const host = document.querySelector<HTMLElement>('#more-0')!.previousElementSibling as HTMLElement;
+    expect(host.dataset.pppIgnore).toBe('true');
+    expect(host.dataset.pppHidden).toBeUndefined();
+  });
+
+  it('decorates a row that mounts after the pointer arrived, without waiting for a scan', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    document.body.innerHTML = `
+      <main id="grid">
+        <article><div data-test-id="pinWrapper" id="pin-0"><img src="https://i.pinimg.com/236x/a.jpg" /></div></article>
+        <article><div data-test-id="pinWrapper" id="pin-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div></article>
+      </main>
+    `;
+    const root = document.querySelector<HTMLElement>('#grid')!;
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    pin.dispatchEvent(new Event('pointerover', { bubbles: true }));
+
+    pin.insertAdjacentHTML('beforeend', '<button aria-label="More options" id="more-0"></button>');
+    await Promise.resolve();
+
+    const host = document.querySelector<HTMLElement>('#more-0')!.previousElementSibling as HTMLElement;
+    expect(host.dataset.pppIgnore).toBe('true');
+    expect(host.dataset.pppHidden).toBeUndefined();
+  });
+
+  it('stops overlaying a pin whose controls only exist while it is hovered', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const root = buildGrid(2);
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    // The row leaves with the pointer; nothing must fill the gap with an
+    // overlay, since the row comes back on the next hover.
+    document.querySelector('#more-0')!.previousElementSibling!.remove();
+    document.querySelector('#more-0')!.remove();
+    pin.dispatchEvent(new Event('pointerover', { bubbles: true }));
+
+    expect(pin.querySelector('[data-ppp-ignore="true"]')).toBeNull();
+  });
+
+  it('survives a card that rebuilds its row on every hover', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    document.body.innerHTML = `
+      <main id="grid">
+        <article id="card-0"><div data-test-id="pinWrapper" id="pin-0"><img src="https://i.pinimg.com/236x/a.jpg" /></div></article>
+        <article id="card-1"><div data-test-id="pinWrapper" id="pin-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div></article>
+      </main>
+    `;
+    const root = document.querySelector<HTMLElement>('#grid')!;
+    manager = new PinActionManager(
+      { getRoots: () => [root] },
+      () => createMediaActionHost('grid', async () => {}),
+    );
+    manager.start();
+
+    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    const card = document.querySelector<HTMLElement>('#card-0')!;
+    const restoreHover = stubHover(pin);
+    afterHover.push(restoreHover);
+
+    // Three hovers of a tile that mounts its overlay row on entry and throws
+    // it away on exit, the way Pinterest treats a pin without a title.
+    for (let pass = 0; pass < 3; pass += 1) {
+      pin.dispatchEvent(new Event('pointerover', { bubbles: true }));
+      card.insertAdjacentHTML('beforeend', '<button aria-label="More options" class="more"></button>');
+      await Promise.resolve();
+
+      const host = card.querySelector<HTMLElement>('[data-ppp-ignore="true"]')!;
+      expect(host, `pass ${pass}: buttons attached`).not.toBeNull();
+      expect(host.nextElementSibling, `pass ${pass}: beside the menu`).toBe(card.querySelector('.more'));
+      expect(host.dataset.pppHidden, `pass ${pass}: shown while hovered`).toBeUndefined();
+
+      restoreHover();
+      afterHover.push(stubHover(document.body));
+      document.body.dispatchEvent(new Event('pointerover', { bubbles: true }));
+      expect(host.dataset.pppHidden, `pass ${pass}: hidden after leaving`).toBe('true');
+      card.querySelector('.more')!.remove();
+      host.remove();
+      await Promise.resolve();
+      afterHover.push(stubHover(pin));
+    }
   });
 });

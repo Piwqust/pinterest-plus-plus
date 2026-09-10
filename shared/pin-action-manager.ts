@@ -33,7 +33,7 @@ interface GridRootSource {
  * listener serves the whole feed, since a virtualized grid recycles its cards.
  */
 export class PinActionManager {
-  private observer = new MutationObserver(() => this.queueScan());
+  private observer = new MutationObserver(() => this.onMutations());
   private intersection: IntersectionObserver | null = null;
   private scanTimer: number | undefined;
   private anchorHosts = new WeakMap<HTMLElement, HTMLElement>();
@@ -44,6 +44,10 @@ export class PinActionManager {
   private hosts = new Set<HTMLElement>();
   /** Overlaid hosts stay re-checkable so a late-rendering footer wins them back. */
   private overlaid = new WeakSet<HTMLElement>();
+  /** Pins that have held a control of their own at least once. */
+  private anchored = new WeakSet<HTMLElement>();
+  /** Overlaid hosts waiting out the frame a hover row would arrive in. */
+  private pendingReveal = new WeakSet<HTMLElement>();
   private hostAnchors = new WeakMap<HTMLElement, HTMLElement>();
   /** Every node a pointer can land on that belongs to a decorated card. */
   private cardPins = new WeakMap<HTMLElement, HTMLElement>();
@@ -84,6 +88,13 @@ export class PinActionManager {
     this.hosts.clear();
   }
 
+  private onMutations(): void {
+    // The row under the pointer is rebuilt as part of hovering, and our buttons
+    // go with it, so that one card cannot wait for the debounced scan.
+    if (this.hovered?.isConnected) this.decorate(this.hovered);
+    this.queueScan();
+  }
+
   private queueScan = (): void => {
     if (this.scanTimer !== undefined) return;
     this.scanTimer = window.setTimeout(() => {
@@ -120,6 +131,12 @@ export class PinActionManager {
       }
     }
 
+    // Pinterest discards a hover row wholesale, so hosts it took with it are
+    // dropped here rather than held for the life of the page.
+    for (const host of this.hosts) {
+      if (!host.isConnected) this.hosts.delete(host);
+    }
+
     // A pin can gain its footer or menu control after the observer already
     // reported it, so retry the small set that is currently near the viewport.
     for (const pin of this.nearViewport) {
@@ -154,14 +171,18 @@ export class PinActionManager {
 
     if (anchor?.parentElement && !anchor.closest('#pinterest-plus-plus-root')) {
       if (existing?.isConnected) this.release(pin, existing);
+      this.anchored.add(pin);
       this.attachBefore(pin, anchor);
       this.refreshChip(pin);
-      if (this.isPointedAt(item)) this.setActiveCard('hovered', pin);
-      else this.reveal(pin, this.isActive(pin));
+      this.settle(pin, item);
       return;
     }
 
     if (existing?.isConnected) return;
+    // A tile whose controls only exist while it is hovered loses ours with
+    // them; the next hover rebuilds the row and re-anchors, so an overlay in
+    // the meantime would only churn hosts behind a hidden card.
+    if (this.anchored.has(pin)) return;
     // Last resort for a card that offers no control of its own: overlay the
     // buttons on the pin image so its media stays reachable.
     const host = this.createHost(pin);
@@ -171,8 +192,17 @@ export class PinActionManager {
     this.hosts.add(host);
     this.overlaid.add(host);
     setActionChip(host, chipFor(pin, null));
-    if (this.isPointedAt(pin)) this.setActiveCard('hovered', pin);
-    else setActionsVisible(host, this.isActive(pin));
+    this.settle(pin, pin);
+  }
+
+  /**
+   * Brings a freshly attached host to the state its card is already in. The
+   * pointer may have been resting on the card since before it was decorated,
+   * which no move of its own will ever report.
+   */
+  private settle(pin: HTMLElement, card: HTMLElement): void {
+    if (this.hovered !== pin && this.isPointedAt(card)) this.setActiveCard('hovered', pin);
+    else this.syncVisibility(pin);
   }
 
   /** Places `host` as the sibling immediately before Pinterest's own control. */
@@ -195,7 +225,12 @@ export class PinActionManager {
   }
 
   private onPointerOver = (event: Event): void => {
-    this.setActiveCard('hovered', this.cardFrom(event.target));
+    const pin = this.cardFrom(event.target);
+    // Pinterest rebuilds a tile's overlay row on every hover and takes our
+    // buttons with it. Re-decorating the card under the pointer right away is
+    // what keeps them there; the debounced scan is only a backstop.
+    if (pin) this.decorate(pin);
+    this.setActiveCard('hovered', pin);
   };
 
   /** The pointer left the page without passing over anything else. */
@@ -207,14 +242,17 @@ export class PinActionManager {
     this.setActiveCard('focused', this.cardFrom(event.target));
   };
 
-  /** The decorated pin owning the node under the pointer, if there is one. */
+  /** The pin owning the node under the pointer, if there is one. */
   private cardFrom(target: EventTarget | null): HTMLElement | null {
-    let node = target instanceof Element ? target : null;
+    const element = target instanceof Element ? target : null;
+    if (!element) return null;
+    let node: HTMLElement | null = element as HTMLElement;
     for (let depth = 0; node && depth < HOVER_LOOKUP_DEPTH; depth += 1, node = node.parentElement) {
-      const pin = this.cardPins.get(node as HTMLElement);
+      const pin = this.cardPins.get(node);
       if (pin?.isConnected) return pin;
     }
-    return null;
+    // A card the scan has not reached yet is still worth decorating on sight.
+    return element.closest<HTMLElement>(ANY_PIN_SELECTOR);
   }
 
   private isActive(pin: HTMLElement): boolean {
@@ -235,19 +273,50 @@ export class PinActionManager {
 
   private setActiveCard(kind: 'hovered' | 'focused', pin: HTMLElement | null): void {
     const previous = this[kind];
-    if (previous === pin) return;
     this[kind] = pin;
-    // The other role can still be holding the card the pointer just left.
-    if (previous && previous !== this.hovered && previous !== this.focused) this.reveal(previous, false);
-    if (pin) this.reveal(pin, true);
+    if (previous && previous !== pin) this.syncVisibility(previous);
+    if (pin) this.syncVisibility(pin);
   }
 
-  private reveal(pin: HTMLElement, visible: boolean): void {
+  /**
+   * Puts a card's buttons in the state the pointer and focus say they should
+   * be in. Every path that can change either ends here, so a host that was
+   * just rebuilt is never left in the state the one before it happened to be.
+   */
+  private syncVisibility(pin: HTMLElement): void {
     const host = this.pinHosts.get(pin);
     if (!host?.isConnected) return;
-    setActionsVisible(host, visible);
+    if (!this.isActive(pin)) {
+      setActionsVisible(host, false);
+      return;
+    }
+    // An overlaid host is what a card gets while no row of its own has been
+    // seen. Pinterest mounts that row in the frame the hover starts, so a
+    // frame's grace keeps the buttons from flashing in the corner first.
+    if (this.overlaid.has(host)) {
+      this.revealOverlaid(pin, host);
+      return;
+    }
+    this.show(pin, host);
+  }
+
+  private revealOverlaid(pin: HTMLElement, host: HTMLElement): void {
+    if (this.pendingReveal.has(host) || typeof requestAnimationFrame !== 'function') {
+      if (!this.pendingReveal.has(host)) this.show(pin, host);
+      return;
+    }
+    this.pendingReveal.add(host);
+    requestAnimationFrame(() => {
+      this.pendingReveal.delete(host);
+      // The row may have arrived and taken the buttons with it by now.
+      if (host.isConnected && this.pinHosts.get(pin) === host && this.isActive(pin)) this.show(pin, host);
+    });
+  }
+
+  private show(pin: HTMLElement, host: HTMLElement): void {
+    setActionsVisible(host, true);
     // A row Pinterest paints on hover is only measurable now that it is drawn.
-    if (visible) this.refreshChip(pin);
+    this.refreshChip(pin);
   }
 
   private refreshChip(pin: HTMLElement): void {
