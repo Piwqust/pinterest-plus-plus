@@ -1,289 +1,171 @@
-import { setActionsVisible } from './media-action-host';
-import { ANY_PIN_SELECTOR, MAX_SCANNED_PINS } from './pin-grid-roots';
+import { createMediaActionHost, setActionsVisible, type MediaAction } from './media-action-host';
+import { ANY_PIN_SELECTOR } from './pin-grid-roots';
 
 const PIN_MEDIA_SELECTOR = 'img, video';
-/** Pins are decorated slightly before they scroll into view. */
-const PIN_DECORATION_MARGIN = '300px';
-const SCAN_DEBOUNCE = 350;
 /** Inset from the media's bottom-left corner, matching Pinterest's own row. */
 const OVERLAY_INSET = 12;
-/** Gap left between the overlay and a control it had to rise above. */
+/** Gap left between the panel and a control it had to rise above. */
 const OVERLAY_GAP = 8;
-/** What the overlay refuses to sit on top of inside a pin. */
+/** What the panel refuses to sit on top of inside a pin. */
 const FOREIGN_CONTROL_SELECTOR = 'a[href], button, [role="button"]';
+/** Of the media's area, what a control must stay under to count as one. */
+const COVER_SHARE = 0.5;
+/** Fallbacks for the first placement, before the panel has been measured. */
+const PANEL_WIDTH = 68;
+const PANEL_HEIGHT = 32;
 
-interface GridRootSource {
-  getRoots(): HTMLElement[];
-}
+type PinAction = (action: MediaAction, pin: HTMLElement, target: HTMLButtonElement) => Promise<void>;
 
-function isPositioned(element: HTMLElement): boolean {
-  const position = getComputedStyle(element).position;
-  return position !== '' && position !== 'static';
+interface Box {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 /**
- * Lays an extension-owned pair of buttons over each pin's media, in the corner
- * Pinterest keeps free, and shows it only while that pin is pointed at or the
- * buttons hold focus. Decoration waits until a pin approaches the viewport, so
- * a deep feed only pays for what is on screen.
+ * Shows a Copy/Download panel over the pin under the pointer, in the corner
+ * Pinterest keeps free, and follows that pin while the page scrolls.
  *
- * The buttons take no part in Pinterest's own layout, by design. Inserting
- * them into a tile's control row meant re-inserting them every time that row
- * was rebuilt — which Pinterest does on every hover — and a row that could not
- * fit them wrapped its own controls onto a second line. A box positioned
- * absolutely inside the pin cannot move anything of Pinterest's, whatever the
- * tile turns out to be made of.
+ * The panel lives in the extension's own top-level layer rather than in
+ * Pinterest's DOM. Everything tried before put it inside the tile: first in
+ * the control row, where it had to be re-inserted on every hover and could
+ * push Pinterest's own controls onto a second line; then absolutely inside the
+ * pin, where an invisible layer of theirs won the stacking order and swallowed
+ * the click. From its own layer the panel cannot disturb their layout, cannot
+ * be discarded by their re-render, and cannot be covered by anything they draw.
+ *
+ * One panel serves the whole feed, since only one pin is ever pointed at.
  */
 export class PinActionManager {
-  private observer = new MutationObserver(() => this.onMutations());
-  private intersection: IntersectionObserver | null = null;
-  private scanTimer: number | undefined;
-  private pinHosts = new WeakMap<HTMLElement, HTMLElement>();
-  private enrolled = new WeakSet<HTMLElement>();
-  private nearViewport = new Set<HTMLElement>();
-  private hosts = new Set<HTMLElement>();
-  private hovered: HTMLElement | null = null;
-  private focused: HTMLElement | null = null;
-  private placeQueued = false;
+  private host: HTMLElement;
+  private root: Element;
+  private active: HTMLElement | null = null;
+  private frameQueued = false;
 
-  constructor(
-    private grid: GridRootSource,
-    private createHost: (pin: HTMLElement) => HTMLElement,
-  ) {}
+  constructor(layer: ShadowRoot, private onAction: PinAction) {
+    this.root = layer.host;
+    this.host = createMediaActionHost('grid', (action, target) => this.run(action, target));
+    this.host.style.position = 'fixed';
+    // First in the layer, so the picker and the toast still open above it.
+    layer.prepend(this.host);
+  }
 
   start(): void {
-    if (typeof IntersectionObserver === 'function') {
-      this.intersection = new IntersectionObserver(
-        (entries) => this.onIntersections(entries),
-        { rootMargin: PIN_DECORATION_MARGIN },
-      );
-    }
-    this.scan();
-    this.observer.observe(document.body, { childList: true, subtree: true });
-    document.addEventListener('pointerover', this.onPointerOver, { passive: true });
+    // Capture, so a page that stops these events on the way up cannot blind us.
+    document.addEventListener('pointerover', this.onPointerOver, { passive: true, capture: true });
+    document.addEventListener('focusin', this.onFocusIn, { passive: true, capture: true });
     document.addEventListener('pointerleave', this.onPointerLeave, { passive: true });
-    document.addEventListener('focusin', this.onFocusIn, { passive: true });
+    window.addEventListener('scroll', this.onViewportChange, { passive: true, capture: true });
+    window.addEventListener('resize', this.onViewportChange, { passive: true });
   }
 
   stop(): void {
-    document.removeEventListener('pointerover', this.onPointerOver);
+    document.removeEventListener('pointerover', this.onPointerOver, true);
+    document.removeEventListener('focusin', this.onFocusIn, true);
     document.removeEventListener('pointerleave', this.onPointerLeave);
-    document.removeEventListener('focusin', this.onFocusIn);
-    this.hovered = null;
-    this.focused = null;
-    this.observer.disconnect();
-    this.intersection?.disconnect();
-    this.intersection = null;
-    if (this.scanTimer !== undefined) window.clearTimeout(this.scanTimer);
-    this.nearViewport.clear();
-    for (const host of this.hosts) host.remove();
-    this.hosts.clear();
+    window.removeEventListener('scroll', this.onViewportChange, true);
+    window.removeEventListener('resize', this.onViewportChange);
+    this.active = null;
+    this.host.remove();
   }
 
-  private onMutations(): void {
-    // A pin re-rendered under the pointer would otherwise stand without its
-    // buttons until the debounced scan comes round.
-    if (this.hovered?.isConnected) {
-      this.decorate(this.hovered);
-      this.schedulePlace();
-    }
-    this.queueScan();
-  }
-
-  private queueScan = (): void => {
-    if (this.scanTimer !== undefined) return;
-    this.scanTimer = window.setTimeout(() => {
-      this.scanTimer = undefined;
-      this.scan();
-    }, SCAN_DEBOUNCE);
-  };
-
-  private onIntersections(entries: IntersectionObserverEntry[]): void {
-    for (const entry of entries) {
-      const pin = entry.target as HTMLElement;
-      if (!entry.isIntersecting) {
-        this.nearViewport.delete(pin);
-        continue;
-      }
-      this.nearViewport.add(pin);
-      this.decorate(pin);
-    }
-  }
-
-  private scan(): void {
-    for (const root of this.grid.getRoots()) {
-      const pins = Array.from(root.querySelectorAll<HTMLElement>(ANY_PIN_SELECTOR)).slice(0, MAX_SCANNED_PINS);
-      for (const pin of pins) {
-        if (!this.intersection) {
-          this.decorate(pin);
-          continue;
-        }
-        if (this.enrolled.has(pin)) continue;
-        this.enrolled.add(pin);
-        this.intersection.observe(pin);
-      }
-    }
-
-    // Pinterest can re-render a pin and drop what it does not own, so hosts it
-    // discarded are let go of here and the pins that lost them decorated again.
-    for (const host of this.hosts) {
-      if (!host.isConnected) this.hosts.delete(host);
-    }
-    for (const pin of this.nearViewport) {
-      if (!pin.isConnected) {
-        this.nearViewport.delete(pin);
-        continue;
-      }
-      this.decorate(pin);
-    }
-  }
-
-  private decorate(pin: HTMLElement): void {
-    if (!pin.isConnected || this.pinHosts.get(pin)?.isConnected) return;
-    // Presence is enough to justify the buttons; the full candidate list is
-    // only built when the user actually clicks one.
-    const media = pin.querySelector<HTMLElement>(PIN_MEDIA_SELECTOR);
-    if (!media) return;
-    const host = this.createHost(pin);
-    host.style.position = 'absolute';
-    host.style.zIndex = '3';
-    host.style.pointerEvents = 'auto';
-    this.frameFor(pin, media).append(host);
-    this.pinHosts.set(pin, host);
-    this.hosts.add(host);
-    this.placeFor(pin);
-    this.settle(pin);
-  }
-
-  /**
-   * The box the overlay is positioned against: the nearest ancestor of the
-   * media that is positioned already. Only a pin that positions nothing at all
-   * is given a style of ours, and the least intrusive one there is.
-   */
-  private frameFor(pin: HTMLElement, media: HTMLElement): HTMLElement {
-    for (let node = media.parentElement; node; node = node.parentElement) {
-      if (isPositioned(node)) return node;
-      if (node === pin) break;
-    }
-    if (!isPositioned(pin)) pin.style.position = 'relative';
-    return pin;
-  }
-
-  /**
-   * Pins the overlay to the media's bottom-left corner within its frame, which
-   * puts it on the line Pinterest's own controls sit on, at the far end of it.
-   */
-  private placeFor(pin: HTMLElement): void {
-    const host = this.pinHosts.get(pin);
-    const media = pin.querySelector<HTMLElement>(PIN_MEDIA_SELECTOR);
-    if (!host?.isConnected || !media) return;
-    const frame = host.offsetParent as HTMLElement | null;
-    const sameFrame = frame !== null && media.offsetParent === frame;
-    const left = (sameFrame ? media.offsetLeft : 0) + OVERLAY_INSET;
-    // A frame can hold more than the media — a footer under it, say — so the
-    // overlay is measured up from the media's own bottom edge.
-    const bottom = (sameFrame ? frame.offsetHeight - media.offsetTop - media.offsetHeight : 0)
-      + OVERLAY_INSET;
-    host.style.left = `${left}px`;
-    host.style.bottom = `${bottom}px`;
-    const lift = this.clearance(pin, host);
-    if (lift > 0) host.style.bottom = `${bottom + lift}px`;
-  }
-
-  /**
-   * How far the overlay has to rise to clear a control of Pinterest's that
-   * shares its corner — the "Visit site" pill a linked pin carries, or their
-   * own row on a tile too narrow to hold both. Only our box ever moves.
-   */
-  private clearance(pin: HTMLElement, host: HTMLElement): number {
-    const box = host.getBoundingClientRect();
-    if (!box.width || !box.height) return 0;
-    let lift = 0;
-    for (const control of pin.querySelectorAll<HTMLElement>(FOREIGN_CONTROL_SELECTOR)) {
-      if (control === host || host.contains(control) || control.contains(host)) continue;
-      const rect = control.getBoundingClientRect();
-      if (!rect.width || !rect.height) continue;
-      if (rect.left >= box.right || rect.right <= box.left) continue;
-      if (rect.top >= box.bottom || rect.bottom <= box.top) continue;
-      lift = Math.max(lift, box.bottom - rect.top + OVERLAY_GAP);
-    }
-    return lift;
-  }
-
-  /**
-   * Pinterest mounts a tile's own overlay as the hover starts, so where its
-   * controls are is only known a frame later. One coalesced re-measure covers
-   * that without the placement chasing every mutation.
-   */
-  private schedulePlace(): void {
-    if (this.placeQueued || typeof requestAnimationFrame !== 'function') return;
-    this.placeQueued = true;
-    requestAnimationFrame(() => {
-      this.placeQueued = false;
-      const pin = this.hovered;
-      if (pin?.isConnected) this.placeFor(pin);
-    });
+  private run(action: MediaAction, target: HTMLButtonElement): Promise<void> {
+    const pin = this.active;
+    if (!pin?.isConnected) return Promise.resolve();
+    return this.onAction(action, pin, target);
   }
 
   private onPointerOver = (event: Event): void => {
-    const pin = this.pinFrom(event.target);
-    if (pin) this.decorate(pin);
-    this.setActiveCard('hovered', pin);
+    this.trackFrom(event.target);
+  };
+
+  private onFocusIn = (event: Event): void => {
+    this.trackFrom(event.target);
   };
 
   /** The pointer left the page without passing over anything else. */
   private onPointerLeave = (): void => {
-    this.setActiveCard('hovered', null);
+    this.setActive(null);
   };
 
-  private onFocusIn = (event: Event): void => {
-    this.setActiveCard('focused', this.pinFrom(event.target));
-  };
-
-  private pinFrom(target: EventTarget | null): HTMLElement | null {
-    if (!(target instanceof Element)) return null;
-    return target.closest<HTMLElement>(ANY_PIN_SELECTOR);
+  private trackFrom(target: EventTarget | null): void {
+    if (!(target instanceof Element)) return;
+    // Reaching the panel itself must not count as leaving the pin it serves.
+    if (target === this.root || this.root.contains(target)) return;
+    this.setActive(target.closest<HTMLElement>(ANY_PIN_SELECTOR));
   }
 
-  private setActiveCard(kind: 'hovered' | 'focused', pin: HTMLElement | null): void {
-    const previous = this[kind];
-    this[kind] = pin;
-    if (previous && previous !== pin) this.syncVisibility(previous);
-    if (pin) this.syncVisibility(pin);
-  }
-
-  /**
-   * Brings a freshly attached host to the state its pin is already in. The
-   * pointer can have been resting on the pin since before it was decorated,
-   * which no move of its own will ever report.
-   */
-  private settle(pin: HTMLElement): void {
-    if (this.hovered !== pin && this.isPointedAt(pin)) this.setActiveCard('hovered', pin);
-    else this.syncVisibility(pin);
-  }
-
-  /**
-   * Puts a pin's buttons in the state the pointer and focus say they are in.
-   * Every path that can change either ends here, so a host that was just
-   * rebuilt is never left in the state the one before it happened to hold.
-   */
-  private syncVisibility(pin: HTMLElement): void {
-    const host = this.pinHosts.get(pin);
-    if (!host?.isConnected) return;
-    const visible = this.hovered === pin || this.focused === pin;
-    // The media may have loaded, or the grid been resized, since the last look.
-    if (visible) {
-      this.placeFor(pin);
-      this.schedulePlace();
+  private onViewportChange = (): void => {
+    if (!this.active) return;
+    if (this.frameQueued) return;
+    if (typeof requestAnimationFrame !== 'function') {
+      this.refresh();
+      return;
     }
-    setActionsVisible(host, visible);
+    this.frameQueued = true;
+    requestAnimationFrame(() => {
+      this.frameQueued = false;
+      this.refresh();
+    });
+  };
+
+  private setActive(pin: HTMLElement | null): void {
+    this.active = pin;
+    this.refresh();
   }
 
-  private isPointedAt(pin: HTMLElement): boolean {
-    try {
-      return pin.matches(':hover');
-    } catch {
+  /** Places the panel over the active pin, or takes it away when there is none. */
+  private refresh(): void {
+    const pin = this.active;
+    setActionsVisible(this.host, Boolean(pin?.isConnected) && this.place(pin!));
+  }
+
+  private place(pin: HTMLElement): boolean {
+    const media = pin.querySelector<HTMLElement>(PIN_MEDIA_SELECTOR);
+    if (!media) return false;
+    const frame = media.getBoundingClientRect();
+    // A tile too small to hold the panel, or one not laid out at all, gets none.
+    if (frame.width < PANEL_WIDTH + OVERLAY_INSET || frame.height < PANEL_HEIGHT + OVERLAY_INSET) {
       return false;
     }
+    const panel = this.host.getBoundingClientRect();
+    const box: Box = {
+      left: frame.left + OVERLAY_INSET,
+      top: frame.bottom - (panel.height || PANEL_HEIGHT) - OVERLAY_INSET,
+      width: panel.width || PANEL_WIDTH,
+      height: panel.height || PANEL_HEIGHT,
+    };
+    const top = Math.max(frame.top + OVERLAY_INSET, box.top - this.clearance(pin, media, box));
+    this.host.style.left = `${Math.round(box.left)}px`;
+    this.host.style.top = `${Math.round(top)}px`;
+    return true;
+  }
+
+  /**
+   * How far the panel has to rise to clear a control of Pinterest's that holds
+   * the same corner — the "Visit site" pill of a linked pin, or their own row
+   * on a tile too narrow to hold both.
+   *
+   * Only controls that sit in the corner count. A tile is wrapped in a link
+   * that covers the whole media, and a hover overlay covers it too; rising
+   * above those would push the panel off the pin, and there is nothing to rise
+   * above anyway, since they are the surface rather than something on it.
+   */
+  private clearance(pin: HTMLElement, media: HTMLElement, box: Box): number {
+    const frame = media.getBoundingClientRect();
+    const wide = frame.width * frame.height * COVER_SHARE;
+    const right = box.left + box.width;
+    const bottom = box.top + box.height;
+    let lift = 0;
+    for (const control of pin.querySelectorAll<HTMLElement>(FOREIGN_CONTROL_SELECTOR)) {
+      if (control === media || control.contains(media)) continue;
+      const rect = control.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.width * rect.height >= wide) continue;
+      if (rect.left >= right || rect.right <= box.left) continue;
+      if (rect.top >= bottom || rect.bottom <= box.top) continue;
+      lift = Math.max(lift, bottom - rect.top + OVERLAY_GAP);
+    }
+    return lift;
   }
 }

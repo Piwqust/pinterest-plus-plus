@@ -1,67 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMediaActionHost } from '../shared/media-action-host';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { MediaAction } from '../shared/media-action-host';
 import { PinActionManager } from '../shared/pin-action-manager';
 
-type IntersectionCallback = (entries: IntersectionObserverEntry[]) => void;
-
-class FakeIntersectionObserver {
-  static instances: FakeIntersectionObserver[] = [];
-  observed = new Set<Element>();
-
-  constructor(private callback: IntersectionCallback, readonly options?: IntersectionObserverInit) {
-    FakeIntersectionObserver.instances.push(this);
-  }
-
-  observe(target: Element): void {
-    this.observed.add(target);
-  }
-
-  unobserve(target: Element): void {
-    this.observed.delete(target);
-  }
-
-  disconnect(): void {
-    this.observed.clear();
-  }
-
-  /** Reports the given targets as (non-)intersecting, like a real scroll would. */
-  report(targets: Element[], isIntersecting = true): void {
-    this.callback(targets.map((target) => ({ target, isIntersecting } as IntersectionObserverEntry)));
-  }
-}
-
-/** A feed of plain pins: an image inside a wrapper, as a fresh tile arrives. */
-function buildGrid(pinCount: number, withMedia = true): HTMLElement {
-  document.body.innerHTML = `
-    <main id="grid">
-      ${Array.from({ length: pinCount }, (_, index) => `
-        <article>
-          <div data-test-id="pinWrapper" id="pin-${index}">
-            ${withMedia ? `<img src="https://i.pinimg.com/236x/${index}.jpg" />` : ''}
-          </div>
-          <div class="footer"><div class="title">Pin ${index}</div></div>
-        </article>
-      `).join('')}
-    </main>
-  `;
-  return document.querySelector<HTMLElement>('#grid')!;
-}
-
-/**
- * jsdom never matches `:hover`, so a browser's answer is stood in for: every
- * ancestor of the pointed-at node reports itself as hovered.
- */
-function stubHover(target: Element | null): () => void {
-  const original = Element.prototype.matches;
-  Element.prototype.matches = function matches(this: Element, selector: string): boolean {
-    if (selector === ':hover') return target !== null && this.contains(target);
-    return original.call(this, selector);
-  } as typeof Element.prototype.matches;
-  return () => { Element.prototype.matches = original; };
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /** jsdom measures nothing, so a test states the rects placement depends on. */
-function stubRect(element: Element, rect: { x: number; y: number; width: number; height: number }): void {
+function stubRect(element: Element, rect: Rect): void {
   element.getBoundingClientRect = () => ({
     x: rect.x,
     y: rect.y,
@@ -75,319 +24,242 @@ function stubRect(element: Element, rect: { x: number; y: number; width: number;
   }) as DOMRect;
 }
 
-function hostIn(pin: Element): HTMLElement | null {
-  return pin.querySelector<HTMLElement>('[data-ppp-ignore="true"]');
-}
-
-function hostsInDocument(): number {
-  return document.querySelectorAll('[data-ppp-ignore="true"]').length;
+/** Tiles laid out where the test says, each with its image filling it. */
+function buildFeed(rects: Rect[] = [{ x: 20, y: 40, width: 236, height: 300 }]): void {
+  document.body.innerHTML = `
+    <main id="grid">
+      ${rects.map((_, index) => `
+        <article>
+          <div data-test-id="pinWrapper" id="pin-${index}">
+            <a href="https://www.pinterest.com/pin/${index}/" id="link-${index}">
+              <img id="media-${index}" src="https://i.pinimg.com/236x/${index}.jpg" />
+            </a>
+          </div>
+        </article>
+      `).join('')}
+    </main>
+  `;
+  rects.forEach((rect, index) => {
+    stubRect(document.querySelector(`#media-${index}`)!, rect);
+  });
 }
 
 function pointerOver(target: Element): void {
   target.dispatchEvent(new Event('pointerover', { bubbles: true }));
 }
 
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => { requestAnimationFrame(() => resolve()); });
+}
+
 describe('PinActionManager', () => {
   let manager: PinActionManager | null = null;
-  let created: HTMLElement[] = [];
-  const restores: Array<() => void> = [];
+  let layerHost: HTMLElement;
+  let layer: ShadowRoot;
+  let ran: Array<{ action: MediaAction; pin: string }> = [];
 
-  const createHost = (): HTMLElement => {
-    const host = createMediaActionHost('grid', async () => {});
-    created.push(host);
-    return host;
-  };
+  const build = (): PinActionManager => new PinActionManager(layer, async (action, pin) => {
+    ran.push({ action, pin: pin.id });
+  });
+
+  const panel = (): HTMLElement => layer.querySelector<HTMLElement>('[data-ppp-ignore="true"]')!;
+  const buttons = (): HTMLButtonElement[] =>
+    Array.from(panel().shadowRoot!.querySelectorAll<HTMLButtonElement>('.ppp-action'));
+  const isShown = (): boolean => panel().dataset.pppHidden === undefined;
 
   beforeEach(() => {
-    created = [];
-    FakeIntersectionObserver.instances = [];
+    ran = [];
     document.body.innerHTML = '';
+    layerHost = document.createElement('div');
+    layerHost.id = 'pinterest-plus-plus-root';
+    layer = layerHost.attachShadow({ mode: 'open' });
+    document.documentElement.append(layerHost);
   });
 
   afterEach(() => {
-    for (const restore of restores.splice(0)) restore();
     manager?.stop();
     manager = null;
-    vi.unstubAllGlobals();
+    layerHost.remove();
   });
 
-  it('decorates only the pins reported near the viewport', () => {
-    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
-    const root = buildGrid(6);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('keeps its panel in the extension`s own layer, out of Pinterest`s DOM', () => {
+    buildFeed();
+    manager = build();
     manager.start();
 
-    const observer = FakeIntersectionObserver.instances[0]!;
-    expect(observer.observed.size).toBe(6);
-    expect(observer.options?.rootMargin).toBe('300px');
-    expect(hostsInDocument()).toBe(0);
-
-    observer.report([document.querySelector<HTMLElement>('#pin-2')!]);
-    expect(hostsInDocument()).toBe(1);
-    expect(hostIn(document.querySelector('#pin-2')!)).toBe(created[0]);
+    expect(panel().parentNode).toBe(layer);
+    expect(document.querySelector('#pin-0')!.children.length).toBe(1);
+    expect(panel().style.position).toBe('fixed');
+    expect(isShown()).toBe(false);
   });
 
-  it('decorates a pin only once however often it is reported', () => {
-    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
-    const root = buildGrid(3);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('places the panel in the media`s bottom-left corner on hover', () => {
+    buildFeed();
+    manager = build();
     manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
 
-    const observer = FakeIntersectionObserver.instances[0]!;
-    const pin = document.querySelector<HTMLElement>('#pin-1')!;
-    observer.report([pin]);
-    observer.report([pin]);
-    observer.report([pin]);
+    pointerOver(document.querySelector('#media-0')!);
 
-    expect(hostsInDocument()).toBe(1);
+    expect(isShown()).toBe(true);
+    // The media runs 20,40 to 256,340: inset 12 from its left and bottom edges.
+    expect(panel().style.left).toBe('32px');
+    expect(panel().style.top).toBe('296px');
   });
 
-  it('skips pins that carry no media yet', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(3, false);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('takes the panel away when the pointer leaves the pin', () => {
+    buildFeed();
+    manager = build();
     manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
 
-    expect(hostsInDocument()).toBe(0);
-  });
-
-  it('decorates every pin when IntersectionObserver is unavailable', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(4);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
-    manager.start();
-
-    expect(hostsInDocument()).toBe(4);
-  });
-
-  it('removes its hosts when stopped', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(3);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
-    manager.start();
-    expect(hostsInDocument()).toBe(3);
-
-    manager.stop();
-    manager = null;
-
-    expect(hostsInDocument()).toBe(0);
-  });
-
-  it('lays the buttons over the pin without joining anything of Pinterest`s', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    document.body.innerHTML = `
-      <main id="grid">
-        <article><div data-test-id="pinWrapper" id="pin-0">
-          <img src="https://i.pinimg.com/236x/a.jpg" />
-          <div class="overlay"><button aria-label="Share"></button><button aria-label="More options"></button></div>
-        </div></article>
-        <article><div data-test-id="pinWrapper" id="pin-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div></article>
-      </main>
-    `;
-    const root = document.querySelector<HTMLElement>('#grid')!;
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
-    manager.start();
-
-    const pin = document.querySelector<HTMLElement>('#pin-0')!;
-    const host = hostIn(pin)!;
-    // Nothing of Pinterest's is a sibling, an ancestor or a neighbour of ours.
-    expect(host.closest('.overlay')).toBeNull();
-    expect(host.style.position).toBe('absolute');
-    expect(host.style.bottom).toBe('12px');
-    expect(host.style.left).toBe('12px');
-    expect(pin.querySelector('.overlay')!.children.length).toBe(2);
-  });
-
-  it('positions a pin that positions nothing itself, and only such a pin', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    document.body.innerHTML = `
-      <main id="grid">
-        <article><div data-test-id="pinWrapper" id="pin-0"><div id="frame-0" style="position: relative"><img src="https://i.pinimg.com/236x/a.jpg" /></div></div></article>
-        <article><div data-test-id="pinWrapper" id="pin-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div></article>
-      </main>
-    `;
-    const root = document.querySelector<HTMLElement>('#grid')!;
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
-    manager.start();
-
-    // The pin already offers a positioned box, so it is left untouched.
-    expect(hostIn(document.querySelector('#pin-0')!)!.parentElement!.id).toBe('frame-0');
-    expect(document.querySelector<HTMLElement>('#pin-0')!.style.position).toBe('');
-    expect(document.querySelector<HTMLElement>('#pin-1')!.style.position).toBe('relative');
-  });
-
-  it('keeps the buttons out of sight until the pin is pointed at', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(2);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
-    manager.start();
-
-    const pin = document.querySelector<HTMLElement>('#pin-0')!;
-    const host = hostIn(pin)!;
-    expect(host.dataset.pppHidden).toBe('true');
-
-    pointerOver(pin.querySelector('img')!);
-    expect(host.dataset.pppHidden).toBeUndefined();
+    pointerOver(document.querySelector('#media-0')!);
+    expect(isShown()).toBe(true);
 
     pointerOver(document.body);
-    expect(host.dataset.pppHidden).toBe('true');
+    expect(isShown()).toBe(false);
   });
 
-  it('reveals the pin the pointer moved to, not the one it left', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(2);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('stays put while the pointer is on the panel itself', () => {
+    buildFeed();
+    manager = build();
     manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+    pointerOver(document.querySelector('#media-0')!);
 
-    const first = hostIn(document.querySelector('#pin-0')!)!;
-    const second = hostIn(document.querySelector('#pin-1')!)!;
+    // Events from inside the layer report the layer's host as their target.
+    pointerOver(layerHost);
 
-    pointerOver(document.querySelector('#pin-0')!);
-    expect(first.dataset.pppHidden).toBeUndefined();
-    expect(second.dataset.pppHidden).toBe('true');
-
-    pointerOver(document.querySelector('#pin-1')!);
-    expect(first.dataset.pppHidden).toBe('true');
-    expect(second.dataset.pppHidden).toBeUndefined();
+    expect(isShown()).toBe(true);
   });
 
-  it('reveals the buttons for a keyboard user and hides them when focus moves on', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(2);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('follows its pin as the page scrolls', async () => {
+    buildFeed();
+    manager = build();
     manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+    pointerOver(document.querySelector('#media-0')!);
+    expect(panel().style.top).toBe('296px');
 
-    const host = hostIn(document.querySelector('#pin-0')!)!;
+    stubRect(document.querySelector('#media-0')!, { x: 20, y: -60, width: 236, height: 300 });
+    window.dispatchEvent(new Event('scroll'));
+    // Repositioning is coalesced into the next frame, not done per event.
+    await nextFrame();
 
-    host.dispatchEvent(new Event('focusin', { bubbles: true }));
-    expect(host.dataset.pppHidden).toBeUndefined();
-
-    document.body.dispatchEvent(new Event('focusin', { bubbles: true }));
-    expect(host.dataset.pppHidden).toBe('true');
+    expect(panel().style.top).toBe('196px');
   });
 
-  it('shows the buttons of a pin decorated under a resting pointer', () => {
-    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
-    const root = buildGrid(2);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('rises above a control of Pinterest`s that holds the same corner', () => {
+    buildFeed();
+    document.querySelector('#pin-0')!.insertAdjacentHTML(
+      'beforeend',
+      '<a href="https://example.com" id="visit">Visit site</a>',
+    );
+    // The pill sits exactly where the panel would: bottom-left of the media.
+    stubRect(document.querySelector('#visit')!, { x: 32, y: 296, width: 120, height: 32 });
+    manager = build();
     manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
 
-    const pin = document.querySelector<HTMLElement>('#pin-0')!;
-    restores.push(stubHover(pin));
-    // No pointer move reports a pin that scrolls in under a still cursor.
-    FakeIntersectionObserver.instances[0]!.report([pin]);
+    pointerOver(document.querySelector('#media-0')!);
 
-    expect(hostIn(pin)!.dataset.pppHidden).toBeUndefined();
+    // Cleared by the overlap plus the gap: 296 - (328 - 296 + 8).
+    expect(panel().style.top).toBe('256px');
   });
 
-  it('restores the buttons a re-render of the pin discarded, still shown', async () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(2);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('ignores the link the whole tile is wrapped in', () => {
+    buildFeed();
+    // The tile's own link covers the media, corner included.
+    stubRect(document.querySelector('#link-0')!, { x: 20, y: 40, width: 236, height: 300 });
+    manager = build();
     manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
 
-    const pin = document.querySelector<HTMLElement>('#pin-0')!;
-    restores.push(stubHover(pin));
-    pointerOver(pin);
-    const first = hostIn(pin)!;
+    pointerOver(document.querySelector('#media-0')!);
 
-    // Pinterest re-renders the tile and throws out what it does not own.
-    first.remove();
-    await Promise.resolve();
-
-    const second = hostIn(pin)!;
-    expect(second).not.toBe(first);
-    expect(second.dataset.pppHidden).toBeUndefined();
+    expect(panel().style.top).toBe('296px');
   });
 
-  it('survives a pin re-rendered on every hover', async () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(2);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('ignores a control of Pinterest`s at the other end of the same line', () => {
+    buildFeed();
+    document.querySelector('#pin-0')!.insertAdjacentHTML(
+      'beforeend',
+      '<button id="more" aria-label="More options"></button>',
+    );
+    stubRect(document.querySelector('#more')!, { x: 204, y: 288, width: 40, height: 40 });
+    manager = build();
     manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
 
-    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+    pointerOver(document.querySelector('#media-0')!);
 
-    for (let pass = 0; pass < 3; pass += 1) {
-      const restoreHover = stubHover(pin);
-      pointerOver(pin);
-      const host = hostIn(pin)!;
-      expect(host, `pass ${pass}: buttons attached`).not.toBeNull();
-      expect(host.dataset.pppHidden, `pass ${pass}: shown while hovered`).toBeUndefined();
-
-      restoreHover();
-      pointerOver(document.body);
-      expect(host.dataset.pppHidden, `pass ${pass}: hidden after leaving`).toBe('true');
-
-      // The tile is rebuilt between hovers, taking our buttons with it.
-      host.remove();
-      await Promise.resolve();
-    }
+    expect(panel().style.top).toBe('296px');
   });
 
-  it('drops its listeners when stopped', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    const root = buildGrid(2);
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
+  it('offers no panel on a tile too small to hold one', () => {
+    buildFeed([{ x: 20, y: 40, width: 60, height: 60 }]);
+    manager = build();
     manager.start();
-    const pin = document.querySelector<HTMLElement>('#pin-0')!;
+
+    pointerOver(document.querySelector('#media-0')!);
+
+    expect(isShown()).toBe(false);
+  });
+
+  it('runs the action against the pin the panel is serving', () => {
+    buildFeed([
+      { x: 20, y: 40, width: 236, height: 300 },
+      { x: 280, y: 40, width: 236, height: 300 },
+    ]);
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+
+    pointerOver(document.querySelector('#media-0')!);
+    buttons()[0]!.click();
+    pointerOver(document.querySelector('#media-1')!);
+    buttons()[1]!.click();
+
+    expect(ran).toEqual([
+      { action: 'copy', pin: 'pin-0' },
+      { action: 'download', pin: 'pin-1' },
+    ]);
+  });
+
+  it('runs nothing once the pin it was serving is gone', () => {
+    buildFeed();
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+    pointerOver(document.querySelector('#media-0')!);
+
+    document.querySelector('#pin-0')!.remove();
+    buttons()[0]!.click();
+
+    expect(ran).toEqual([]);
+  });
+
+  it('reveals the panel for a keyboard user reaching a pin', () => {
+    buildFeed();
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+
+    document.querySelector('#link-0')!.dispatchEvent(new Event('focusin', { bubbles: true }));
+
+    expect(isShown()).toBe(true);
+  });
+
+  it('takes its panel and its listeners away when stopped', () => {
+    buildFeed();
+    manager = build();
+    manager.start();
+    const stopped = panel();
     manager.stop();
     manager = null;
 
-    expect(() => pointerOver(pin)).not.toThrow();
-    expect(hostsInDocument()).toBe(0);
-  });
-
-  it('rises above a control of Pinterest`s that shares its corner', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    document.body.innerHTML = `
-      <main id="grid">
-        <article><div data-test-id="pinWrapper" id="pin-0">
-          <img src="https://i.pinimg.com/236x/a.jpg" />
-          <a href="https://example.com" id="visit">Visit site</a>
-        </div></article>
-        <article><div data-test-id="pinWrapper" id="pin-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div></article>
-      </main>
-    `;
-    const root = document.querySelector<HTMLElement>('#grid')!;
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
-    manager.start();
-
-    const pin = document.querySelector<HTMLElement>('#pin-0')!;
-    const host = hostIn(pin)!;
-    // The pill Pinterest draws for a linked pin lands on the same corner.
-    stubRect(host, { x: 12, y: 268, width: 64, height: 32 });
-    stubRect(document.querySelector('#visit')!, { x: 12, y: 260, width: 90, height: 30 });
-
-    pointerOver(pin);
-
-    // Cleared by the overlap plus the gap: 300 - 260 + 8.
-    expect(host.style.bottom).toBe('60px');
-  });
-
-  it('leaves the overlay where it is when the corner is free', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
-    document.body.innerHTML = `
-      <main id="grid">
-        <article><div data-test-id="pinWrapper" id="pin-0">
-          <img src="https://i.pinimg.com/236x/a.jpg" />
-          <button id="more" aria-label="More options"></button>
-        </div></article>
-        <article><div data-test-id="pinWrapper" id="pin-1"><img src="https://i.pinimg.com/236x/b.jpg" /></div></article>
-      </main>
-    `;
-    const root = document.querySelector<HTMLElement>('#grid')!;
-    manager = new PinActionManager({ getRoots: () => [root] }, createHost);
-    manager.start();
-
-    const pin = document.querySelector<HTMLElement>('#pin-0')!;
-    const host = hostIn(pin)!;
-    stubRect(host, { x: 12, y: 268, width: 64, height: 32 });
-    // Their own row sits at the other end of the same line.
-    stubRect(document.querySelector('#more')!, { x: 180, y: 264, width: 40, height: 40 });
-
-    pointerOver(pin);
-
-    expect(host.style.bottom).toBe('12px');
+    expect(stopped.isConnected).toBe(false);
+    expect(() => pointerOver(document.querySelector('#media-0')!)).not.toThrow();
+    expect(layer.querySelector('[data-ppp-ignore="true"]')).toBeNull();
   });
 });

@@ -42,10 +42,10 @@ export default defineContentScript({
     };
     document.addEventListener(GRID_STATUS_EVENT, gridStatusListener);
     grid.start();
-    const pinActions = new PinActionManager(grid, (pin) => createMediaActionHost(
-      'grid',
-      (action, target) => ui.performPinAction(action, pin, target),
-    ));
+    const pinActions = new PinActionManager(
+      shadow,
+      (action, pin, target) => ui.performPinAction(action, pin, target),
+    );
     pinActions.start();
     const closeupActions = new CloseupActionManager(() => createMediaActionHost(
       'closeup',
