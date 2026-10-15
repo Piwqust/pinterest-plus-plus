@@ -33,8 +33,8 @@ export function createMediaActionHost(
   host.dataset.pppIgnore = 'true';
   host.style.cssText = scope === 'closeup'
     ? `display:inline-flex;flex:0 0 auto;align-self:center;align-items:center;height:${CLOSEUP_HEIGHT}px;line-height:0;vertical-align:middle;pointer-events:auto;`
-    : 'display:block;line-height:0;pointer-events:auto;';
-  if (scope === 'grid') host.dataset.pppHidden = 'true';
+    : 'display:block;line-height:0;';
+  if (scope === 'grid') setActionsVisible(host, false);
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = SHADOW_CSS;
@@ -60,8 +60,13 @@ export function createMediaActionHost(
 /**
  * Reveals or hides the buttons. Visibility is a property of the host, not of
  * where it sits, so a caller can flip it without knowing what it is laid over.
+ *
+ * A hidden host keeps its box wherever it was last placed — before the first
+ * hover that is the viewport's top-left corner, over Pinterest's logo — so it
+ * must stop taking hits too, or it swallows clicks meant for the page beneath.
  */
 export function setActionsVisible(host: HTMLElement, visible: boolean): void {
   if (visible) delete host.dataset.pppHidden;
   else host.dataset.pppHidden = 'true';
+  host.style.pointerEvents = visible ? 'auto' : 'none';
 }

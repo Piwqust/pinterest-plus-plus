@@ -14,6 +14,25 @@ const COVER_SHARE = 0.5;
 const PANEL_WIDTH = 68;
 const PANEL_HEIGHT = 32;
 
+/**
+ * The pin's own picture. A tile can also render a creator avatar or a board
+ * thumbnail ahead of it in document order, and anchoring to one of those would
+ * put the panel on a 24px icon, or drop it as too small.
+ */
+function largestMedia(pin: HTMLElement): { media: HTMLElement; frame: DOMRect } | null {
+  let best: { media: HTMLElement; frame: DOMRect } | null = null;
+  let bestArea = 0;
+  for (const media of pin.querySelectorAll<HTMLElement>(PIN_MEDIA_SELECTOR)) {
+    const frame = media.getBoundingClientRect();
+    const area = frame.width * frame.height;
+    if (area > bestArea) {
+      best = { media, frame };
+      bestArea = area;
+    }
+  }
+  return best;
+}
+
 type PinAction = (action: MediaAction, pin: HTMLElement, target: HTMLButtonElement) => Promise<void>;
 
 interface Box {
@@ -42,6 +61,14 @@ export class PinActionManager {
   private root: Element;
   private active: HTMLElement | null = null;
   private frameQueued = false;
+  /**
+   * Pinterest renders a tile's hover controls in its own handler for the same
+   * pointerover this manager hears first, from the capture phase. The pin is
+   * watched while active so the panel re-places once "Visit site" exists.
+   */
+  private pinObserver = typeof MutationObserver === 'function'
+    ? new MutationObserver(() => this.onViewportChange())
+    : null;
 
   constructor(layer: ShadowRoot, private onAction: PinAction) {
     this.root = layer.host;
@@ -66,6 +93,7 @@ export class PinActionManager {
     document.removeEventListener('pointerleave', this.onPointerLeave);
     window.removeEventListener('scroll', this.onViewportChange, true);
     window.removeEventListener('resize', this.onViewportChange);
+    this.pinObserver?.disconnect();
     this.active = null;
     this.host.remove();
   }
@@ -111,6 +139,10 @@ export class PinActionManager {
   };
 
   private setActive(pin: HTMLElement | null): void {
+    if (pin !== this.active) {
+      this.pinObserver?.disconnect();
+      if (pin) this.pinObserver?.observe(pin, { childList: true, subtree: true });
+    }
     this.active = pin;
     this.refresh();
   }
@@ -122,21 +154,24 @@ export class PinActionManager {
   }
 
   private place(pin: HTMLElement): boolean {
-    const media = pin.querySelector<HTMLElement>(PIN_MEDIA_SELECTOR);
-    if (!media) return false;
-    const frame = media.getBoundingClientRect();
+    const found = largestMedia(pin);
+    if (!found) return false;
+    const { media, frame } = found;
     // A tile too small to hold the panel, or one not laid out at all, gets none.
     if (frame.width < PANEL_WIDTH + OVERLAY_INSET || frame.height < PANEL_HEIGHT + OVERLAY_INSET) {
       return false;
     }
     const panel = this.host.getBoundingClientRect();
+    // A tall pin can run past the bottom of the window; the corner the user
+    // can actually see is where the panel has to be.
+    const bottom = Math.min(frame.bottom, window.innerHeight);
     const box: Box = {
       left: frame.left + OVERLAY_INSET,
-      top: frame.bottom - (panel.height || PANEL_HEIGHT) - OVERLAY_INSET,
+      top: bottom - (panel.height || PANEL_HEIGHT) - OVERLAY_INSET,
       width: panel.width || PANEL_WIDTH,
       height: panel.height || PANEL_HEIGHT,
     };
-    const top = Math.max(frame.top + OVERLAY_INSET, box.top - this.clearance(pin, media, box));
+    const top = Math.max(frame.top + OVERLAY_INSET, box.top - this.clearance(pin, media, frame, box));
     this.host.style.left = `${Math.round(box.left)}px`;
     this.host.style.top = `${Math.round(top)}px`;
     return true;
@@ -152,8 +187,7 @@ export class PinActionManager {
    * above those would push the panel off the pin, and there is nothing to rise
    * above anyway, since they are the surface rather than something on it.
    */
-  private clearance(pin: HTMLElement, media: HTMLElement, box: Box): number {
-    const frame = media.getBoundingClientRect();
+  private clearance(pin: HTMLElement, media: HTMLElement, frame: DOMRect, box: Box): number {
     const wide = frame.width * frame.height * COVER_SHARE;
     const right = box.left + box.width;
     const bottom = box.top + box.height;

@@ -53,4 +53,14 @@ describe('setActionsVisible', () => {
     setActionsVisible(host, false);
     expect(host.dataset.pppHidden).toBe('true');
   });
+
+  it('stops a hidden host from taking clicks where it was last placed', () => {
+    const host = createMediaActionHost('grid', async () => {});
+    expect(host.style.pointerEvents).toBe('none');
+
+    setActionsVisible(host, true);
+    expect(host.style.pointerEvents).toBe('auto');
+    setActionsVisible(host, false);
+    expect(host.style.pointerEvents).toBe('none');
+  });
 });

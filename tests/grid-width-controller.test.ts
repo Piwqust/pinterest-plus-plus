@@ -36,6 +36,18 @@ describe('GridWidthController', () => {
     expect(controller.effective).toBe(900);
   });
 
+  it('keeps a preference set elsewhere even when this grid cannot show it yet', () => {
+    const applyWidth = vi.fn();
+    const controller = new GridWidthController(DEFAULT_TILE_WIDTH, applyWidth, 440);
+
+    expect(controller.prefer(600)).toBe(440);
+    expect(controller.preferred).toBe(600);
+    expect(applyWidth).toHaveBeenLastCalledWith(440);
+
+    expect(controller.setMax(940)).toBe(600);
+    expect(applyWidth).toHaveBeenLastCalledWith(600);
+  });
+
   it('does not re-apply when the maximum changes without moving the effective width', () => {
     const applyWidth = vi.fn();
     const controller = new GridWidthController(240, applyWidth, 940);

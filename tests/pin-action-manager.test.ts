@@ -107,6 +107,18 @@ describe('PinActionManager', () => {
     expect(panel().style.top).toBe('296px');
   });
 
+  it('keeps the panel on screen when the pin runs past the window', () => {
+    buildFeed([{ x: 20, y: window.innerHeight - 200, width: 236, height: 500 }]);
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+
+    pointerOver(document.querySelector('#media-0')!);
+
+    expect(isShown()).toBe(true);
+    expect(panel().style.top).toBe(`${window.innerHeight - 32 - 12}px`);
+  });
+
   it('takes the panel away when the pointer leaves the pin', () => {
     buildFeed();
     manager = build();
@@ -165,6 +177,43 @@ describe('PinActionManager', () => {
 
     // Cleared by the overlap plus the gap: 296 - (328 - 296 + 8).
     expect(panel().style.top).toBe('256px');
+  });
+
+  it('rises above a control Pinterest renders only after the hover began', async () => {
+    buildFeed();
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+    pointerOver(document.querySelector('#media-0')!);
+    expect(panel().style.top).toBe('296px');
+
+    // Pinterest's own hover handler runs after this capture listener.
+    document.querySelector('#pin-0')!.insertAdjacentHTML(
+      'beforeend',
+      '<a href="https://example.com" id="visit">Visit site</a>',
+    );
+    stubRect(document.querySelector('#visit')!, { x: 32, y: 296, width: 120, height: 32 });
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    await nextFrame();
+
+    expect(panel().style.top).toBe('256px');
+  });
+
+  it('anchors to the pin`s picture, not a smaller image ahead of it', () => {
+    buildFeed();
+    document.querySelector('#link-0')!.insertAdjacentHTML(
+      'afterbegin',
+      '<img id="avatar" src="https://i.pinimg.com/30x30/avatar.jpg" />',
+    );
+    stubRect(document.querySelector('#avatar')!, { x: 20, y: 350, width: 24, height: 24 });
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+
+    pointerOver(document.querySelector('#media-0')!);
+
+    expect(isShown()).toBe(true);
+    expect(panel().style.top).toBe('296px');
   });
 
   it('ignores the link the whole tile is wrapped in', () => {

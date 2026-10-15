@@ -2,10 +2,20 @@
 
 Всё, что можно подготовить без аккаунта Google, уже лежит в репозитории. Ниже — шаги, которые может сделать только владелец аккаунта.
 
-ZIP: `.output/pinterest-plus-plus-1.0.7-chrome.zip` после `npm run zip`.  
+ZIP: `.output/pinterest-plus-plus-1.0.8-chrome.zip` после `npm run zip`.  
 Тексты: `store/LISTING.md`.  
 Картинки: `store/assets/`.  
 Политика: https://piwqust.github.io/pinterest-plus-plus/ (`store/privacy.html`, копия в `docs/index.html`).
+
+## Обновление уже опубликованного расширения
+
+Если item уже есть в дашборде, шаги 1–2 и 4 не нужны.
+
+1. `npm test`, `npm run typecheck`, `npm run zip`.
+2. Dashboard → ваш item → **Package** → **Upload new package** → `.output/pinterest-plus-plus-1.0.8-chrome.zip`. Версия в манифесте должна быть выше опубликованной.
+3. **Store listing**: замените подробное описание английским блоком из `LISTING.md`. Скриншоты: удалите старый «On boards, actions stay in the footer» и загрузите заново `screenshot-1-copy-download.png` и `screenshot-2-boards.png`; 3–5 не изменились.
+4. **Privacy practices**: разрешения не менялись, обоснования те же. Обновите только поле test instructions (Reviewer notes из `LISTING.md`), если вы его заполняли: кнопки теперь появляются при наведении на пин.
+5. **Submit for review**.
 
 ## 1. Аккаунт разработчика
 
@@ -36,7 +46,7 @@ npm run typecheck
 npm run zip
 ```
 
-Загружайте `.output/pinterest-plus-plus-1.0.7-chrome.zip`. Это production MV3-пакет, не исходники.
+Загружайте `.output/pinterest-plus-plus-1.0.8-chrome.zip`. Это production MV3-пакет, не исходники.
 
 ## 4. New item
 

@@ -25,7 +25,7 @@ Copy and download Pinterest media in full quality, and resize the responsive gri
 ```
 Pinterest Plus Plus adds Copy, Download, and a resizable grid to Pinterest. The controls follow Pinterest’s own layout instead of covering it.
 
-Copy any image to the clipboard as a full-resolution PNG. Download the highest-quality image or video Pinterest actually serves. On the home feed the buttons sit beside the pin’s three-dot menu. On boards and profiles they sit in the pin footer beside the favourite star, so they stay visible without hovering. On a pin close-up they match Pinterest’s action-bar size and act on the pin you are viewing, not the related grid around it.
+Copy any image to the clipboard as a full-resolution PNG. Download the highest-quality image or video Pinterest actually serves. Point at any pin — on the home feed, a board, a profile or in search — and Copy and Download appear in its lower-left corner, stepping aside for Pinterest’s own “Visit site” button. On a pin close-up they sit in Pinterest’s action bar at its size and act on the pin you are viewing, not the related grid around it.
 
 If a pin is a carousel, you choose the slide. Videos copy the first decoded frame, or the poster if Pinterest blocks decoding.
 
@@ -67,7 +67,7 @@ Pinterest Plus Plus
 ```
 Pinterest Plus Plus добавляет на Pinterest кнопки Copy и Download и регулятор размера сетки. Элементы следуют собственной вёрстке Pinterest, а не перекрывают её.
 
-Копируйте любое изображение в буфер как PNG в полном разрешении. Скачивайте изображение или видео с того источника CDN, который Pinterest реально отдаёт. В ленте кнопки стоят рядом с меню из трёх точек. На досках и профилях — в подвале пина рядом со звездой, поэтому они видны без наведения. В крупном просмотре они совпадают по размеру с панелью Pinterest и действуют на открытый пин, а не на соседнюю сетку.
+Копируйте любое изображение в буфер как PNG в полном разрешении. Скачивайте изображение или видео с того источника CDN, который Pinterest реально отдаёт. Наведите курсор на любой пин — в ленте, на доске, в профиле или в поиске — и в его левом нижнем углу появятся Copy и Download; кнопка Pinterest «Visit site» их не перекрывает. В крупном просмотре они стоят в панели действий Pinterest, совпадают с ней по размеру и действуют на открытый пин, а не на соседнюю сетку.
 
 Если у пина несколько слайдов, вы выбираете нужный. Для видео копируется первый декодированный кадр, а если Pinterest блокирует декодирование — постер.
 
@@ -92,7 +92,7 @@ Upload from `store/assets/`. PNG at the exact pixel sizes below. The promo tiles
 |---|---|---|
 | Store icon | `icon-128.png` | 128×128 |
 | Screenshot 1 | `screenshot-1-copy-download.png` | 1280×800 |
-| Screenshot 2 | `screenshot-2-board-footer.png` | 1280×800 |
+| Screenshot 2 | `screenshot-2-boards.png` | 1280×800 |
 | Screenshot 3 | `screenshot-3-grid-slider.png` | 1280×800 |
 | Screenshot 4 | `screenshot-4-closeup.png` | 1280×800 |
 | Screenshot 5 | `screenshot-5-media-picker.png` | 1280×800 |
@@ -198,5 +198,5 @@ Answer for the extension itself, not for Pinterest’s catalogue:
 ## Reviewer notes (optional “test instructions”)
 
 ```
-Load on https://www.pinterest.com (any account, including logged out on public pins). Copy and Download appear beside each main-grid pin’s three-dot menu and beside the pin close-up’s action bar. On boards and profiles they sit in the pin footer. The tile-size slider is in the lower-right corner. A MAIN-world content script talks to Pinterest’s masonry so resizing uses Pinterest’s own layout engine rather than CSS scaling. The toolbar button opens a popup carrying the same tile-width setting; it writes chrome.storage.sync, which the content script already observes, so no tabs permission is needed. No account, analytics, or remote configuration.
+Load on https://www.pinterest.com (any account, including logged out on public pins). Point at any pin in a grid: Copy and Download appear in the lower-left corner of its image. On a pin close-up (/pin/…) they sit in the action bar beside the three-dot menu. The tile-size slider is in the lower-right corner. A MAIN-world content script talks to Pinterest’s masonry so resizing uses Pinterest’s own layout engine rather than CSS scaling. The toolbar button opens a popup carrying the same tile-width setting; it writes chrome.storage.sync, which the content script already observes, so no tabs permission is needed. No account, analytics, or remote configuration.
 ```

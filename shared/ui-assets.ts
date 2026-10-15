@@ -33,7 +33,11 @@ export const SHADOW_CSS = `
   }
   /* A grid tile keeps its buttons out of the way until the pin is pointed at
      or they take focus, the way Pinterest treats its own tile controls. */
-  :host([data-ppp-hidden="true"]) .ppp-pin-actions { opacity: 0; pointer-events: none; }
+  /* Visibility waits out the fade, then takes the hidden buttons out of the tab order. */
+  :host([data-ppp-hidden="true"]) .ppp-pin-actions {
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity 120ms ease-out, visibility 0s linear 120ms;
+  }
   .ppp-action {
     appearance: none; position: relative; isolation: isolate; width: 28px; height: 28px; min-width: 28px; margin: 0; padding: 0; border: 0; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;

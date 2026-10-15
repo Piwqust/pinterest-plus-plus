@@ -41,6 +41,13 @@ export class GridUi {
   private persistTimer: number | undefined;
   private metrics: GridMetrics | null = null;
   private unsupportedNotified = false;
+  /**
+   * What each action button shows at rest. Read once, because a second click
+   * during the "Copied" confirmation would otherwise capture the checkmark as
+   * the markup to restore and leave the button stuck on it.
+   */
+  private idleMarkup = new WeakMap<HTMLButtonElement, string>();
+  private confirmTimers = new WeakMap<HTMLButtonElement, number>();
 
   constructor(private shadow: ShadowRoot, private grid: GridResizer, tileWidth: number) {
     const initialMax = maxTileWidthFor(window.innerWidth - VIEWPORT_WIDTH_RESERVE);
@@ -100,9 +107,13 @@ export class GridUi {
     window.addEventListener('resize', this.onViewportResize);
   }
 
+  /**
+   * Adopts a width chosen elsewhere — the popup, another tab, Reset — as the
+   * preference, so a value wider than this window allows comes back in full
+   * once the window is wide enough instead of being cut down for good.
+   */
   setTileWidth(value: number): void {
-    const normalized = this.widthController.commit(value);
-    this.previewTileWidth(normalized);
+    this.previewTileWidth(this.widthController.prefer(value));
   }
 
   setGridStatus(detail: GridStatusDetail): void {
@@ -271,7 +282,10 @@ export class GridUi {
       );
       return false;
     }
-    const originalMarkup = target.innerHTML;
+    const idleMarkup = this.idleMarkup.get(target) ?? target.innerHTML;
+    this.idleMarkup.set(target, idleMarkup);
+    window.clearTimeout(this.confirmTimers.get(target));
+    target.innerHTML = idleMarkup;
     target.disabled = true;
     target.setAttribute('aria-busy', 'true');
     const message: CopyMediaMessage | DownloadMediaMessage = action === 'copy'
@@ -293,17 +307,27 @@ export class GridUi {
       // click. Sending Copy through the service worker first loses Chrome's
       // transient user activation and leaves some builds waiting indefinitely.
       const directCopy = action === 'copy' ? beginDirectCopy(media) : null;
-      const response: unknown = await (directCopy ?? withTimeout(
-        browser.runtime.sendMessage(message),
-        25_000,
-        action === 'copy' ? 'Copy timed out. Please try again.' : 'Download timed out. Please try again.',
-      ));
+      let response: unknown = directCopy ? await directCopy : undefined;
+      // The page fetches under Pinterest's CORS and CSP and needs the tab to
+      // hold focus; the offscreen document has none of those limits, so a
+      // failed direct copy still gets the extension's own path.
+      if (!isActionResponse(response) || !response.ok) {
+        response = await withTimeout(
+          browser.runtime.sendMessage(message),
+          25_000,
+          action === 'copy' ? 'Copy timed out. Please try again.' : 'Download timed out. Please try again.',
+        );
+      }
       const result: ActionResponse = isActionResponse(response)
         ? response
         : { ok: false, message: 'The extension did not respond' };
-      if (result.ok) target.innerHTML = `${ICONS.check}<span>${action === 'copy' ? 'Copied' : 'Saved'}</span>`;
+      if (result.ok) {
+        target.innerHTML = `${ICONS.check}<span>${action === 'copy' ? 'Copied' : 'Saved'}</span>`;
+        this.confirmTimers.set(target, window.setTimeout(() => {
+          target.innerHTML = idleMarkup;
+        }, 1200));
+      }
       this.showToast(result.message, !result.ok);
-      window.setTimeout(() => { target.innerHTML = originalMarkup; }, 1200);
       return result.ok;
     } catch (error) {
       const fallback = action === 'copy' ? 'Could not copy this media' : 'Could not start the download';

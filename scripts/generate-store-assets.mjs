@@ -17,6 +17,7 @@ const ICONS = {
   smaller: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>',
   larger: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>',
   dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>',
+  share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0-4 4m4-4 4 4"/><path d="M6 13v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-5"/></svg>',
   star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg>',
 };
 
@@ -69,22 +70,27 @@ const mockCss = `
     pointer-events: none; border-radius: 0 0 16px 16px;
   }
   .overlay {
-    position: absolute; inset: 0; display: flex; justify-content: space-between;
-    align-items: flex-start; padding: 10px; background: linear-gradient(180deg, rgba(0,0,0,.28), transparent 42%);
+    position: absolute; inset: 0; display: flex; justify-content: flex-end;
+    align-items: flex-start; padding: 10px; background: rgba(0,0,0,.24);
   }
+  .corner-icons { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 8px; }
+  .round {
+    width: 32px; height: 32px; border: 0; border-radius: 50%; background: #fff; color: #2f2f2e;
+    display: grid; place-items: center;
+  }
+  .round svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .round.dots svg { fill: currentColor; stroke: none; }
+  .visit {
+    position: absolute; left: 12px; bottom: 12px; height: 32px; padding: 0 12px; border-radius: 16px;
+    display: flex; align-items: center; background: rgba(255,255,255,.92); color: #2f2f2e; font-size: 12px; font-weight: 650;
+  }
+  .overlay, .corner-icons, .visit, .hover-panel { z-index: 1; }
+  .hover-panel { position: absolute; left: 12px; bottom: 12px; line-height: 0; }
+  .hover-panel.lifted { bottom: 52px; }
   .save {
     height: 36px; padding: 0 14px; border: 0; border-radius: 18px;
     color: #fff; background: #e60023; font: 700 13px/36px inherit;
   }
-  .cluster {
-    display: flex; align-items: center; gap: 6px; height: 36px; padding: 4px;
-    border-radius: 18px; background: #fff;
-  }
-  .menu {
-    width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: #2f2f2e;
-    display: grid; place-items: center;
-  }
-  .menu svg { width: 16px; height: 16px; fill: currentColor; }
   .footer {
     display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 2px 0;
   }
@@ -123,24 +129,30 @@ function pin(h, g) {
   return `<article class="pin"><div class="media" style="--h:${h}px;--g:${g}"></div></article>`;
 }
 
-function overlayPin(h, g, { hovered = false } = {}) {
-  const actions = hovered ? `
-    <div class="overlay">
-      <button class="save" type="button">Save</button>
-      <div class="cluster">
-        ${actionsHtml('grid')}
-        <button class="menu" type="button">${ICONS.dots}</button>
-      </div>
-    </div>` : '';
-  return `<article class="pin"><div class="media" style="--h:${h}px;--g:${g}">${actions}</div></article>`;
+/**
+ * Pinterest's own hover state, with the extension's panel laid over the
+ * media's lower-left corner — lifted above "Visit site" when the pin has one.
+ */
+function hoverLayer(visit) {
+  return `
+    <div class="overlay"><button class="save" type="button">Save</button></div>
+    ${visit ? `<span class="visit">${visit}</span>` : ''}
+    <div class="corner-icons">
+      <button class="round" type="button">${ICONS.share}</button>
+      <button class="round dots" type="button">${ICONS.dots}</button>
+    </div>
+    <span class="hover-panel${visit ? ' lifted' : ''}">${actionsHtml('grid')}</span>`;
 }
 
-function boardPin(h, g, title) {
+function overlayPin(h, g, { hovered = false } = {}) {
+  return `<article class="pin"><div class="media" style="--h:${h}px;--g:${g}">${hovered ? hoverLayer() : ''}</div></article>`;
+}
+
+function boardPin(h, g, title, { hovered = false, visit = '' } = {}) {
   return `<article class="pin">
-    <div class="media" style="--h:${h}px;--g:${g}"></div>
+    <div class="media" style="--h:${h}px;--g:${g}">${hovered ? hoverLayer(visit) : ''}</div>
     <div class="footer">
       <div class="title">${title}</div>
-      ${actionsHtml('grid')}
       <button class="star" type="button">${ICONS.star}</button>
     </div>
   </article>`;
@@ -200,7 +212,7 @@ const G = {
 
 const scenes = {
   'screenshot-1-copy-download.html': page(
-    'Copy and download sit beside the pin’s menu',
+    'Point at a pin — Copy and Download appear in its corner',
     `${chromeTop()}<div class="feed">
       ${overlayPin(268, G.a)}
       ${overlayPin(210, G.b)}
@@ -214,12 +226,12 @@ const scenes = {
       ${overlayPin(198, G.b)}
     </div>${gridPanel()}<div class="toast">Copied</div>`,
   ),
-  'screenshot-2-board-footer.html': page(
-    'On boards, actions stay in the footer — no hover needed',
+  'screenshot-2-boards.html': page(
+    'Boards and profiles too — clear of Pinterest’s own buttons',
     `${chromeTop()}<div class="feed board">
       ${boardPin(250, G.c, 'Stoneware bottle')}
       ${boardPin(198, G.e, 'North window')}
-      ${boardPin(276, G.b, 'Olive branches')}
+      ${boardPin(276, G.b, 'Olive branches', { hovered: true, visit: 'example.com' })}
       ${boardPin(214, G.d, 'Linen study')}
       ${boardPin(232, G.a, 'Terracotta wall')}
       ${boardPin(188, G.f, 'Oak interior')}
@@ -430,7 +442,7 @@ await copyFile(iconSrc, join(assetsDir, 'icon-128.png'));
 
 const shots = [
   ['screenshot-1-copy-download.html', 'screenshot-1-copy-download.png', 1280, 800],
-  ['screenshot-2-board-footer.html', 'screenshot-2-board-footer.png', 1280, 800],
+  ['screenshot-2-boards.html', 'screenshot-2-boards.png', 1280, 800],
   ['screenshot-3-grid-slider.html', 'screenshot-3-grid-slider.png', 1280, 800],
   ['screenshot-4-closeup.html', 'screenshot-4-closeup.png', 1280, 800],
   ['screenshot-5-media-picker.html', 'screenshot-5-media-picker.png', 1280, 800],

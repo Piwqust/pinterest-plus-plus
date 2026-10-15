@@ -22,8 +22,8 @@ async function hasOffscreenDocument(documentUrl: string): Promise<boolean> {
     return contexts.length > 0;
   }
 
-  // chrome.runtime.getContexts was added after the extension's stated Chrome
-  // 109 minimum. Service-worker clients provide the equivalent check there.
+  // chrome.runtime.getContexts arrived in Chrome 116, after the extension's
+  // Chrome 111 minimum. Service-worker clients provide the equivalent check there.
   const serviceWorkerClients = (globalThis as typeof globalThis & {
     clients?: { matchAll: () => Promise<Array<{ url: string }>> };
   }).clients;

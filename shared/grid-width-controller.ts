@@ -45,6 +45,16 @@ export class GridWidthController {
     return normalized;
   }
 
+  /**
+   * Takes `value` as the preference without bounding it to this grid. The
+   * effective width still respects the current maximum, and grows back to the
+   * preference when the maximum allows it.
+   */
+  prefer(value: number): number {
+    this.preferredWidth = clampTileWidth(value);
+    return this.setMax(this.maxWidth);
+  }
+
   setMax(max: number): number {
     this.maxWidth = clampTileWidth(max);
     const next = clampTileWidth(this.preferredWidth, this.maxWidth);

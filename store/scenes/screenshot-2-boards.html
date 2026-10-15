@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8" />
-<title>On boards, actions stay in the footer — no hover needed</title>
+<title>Boards and profiles too — clear of Pinterest’s own buttons</title>
 <style>
   .ppp-root {
     all: initial;
@@ -21,7 +21,14 @@
   button { -webkit-tap-highlight-color: transparent; }
   .ppp-pin-actions {
     display: inline-flex; align-items: center; gap: 6px; margin-right: 2px; padding: 0; line-height: 0; vertical-align: middle;
-    background: transparent;
+    background: transparent; transition: opacity 120ms ease-out;
+  }
+  /* A grid tile keeps its buttons out of the way until the pin is pointed at
+     or they take focus, the way Pinterest treats its own tile controls. */
+  /* Visibility waits out the fade, then takes the hidden buttons out of the tab order. */
+  .ppp-root([data-ppp-hidden="true"]) .ppp-pin-actions {
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity 120ms ease-out, visibility 0s linear 120ms;
   }
   .ppp-action {
     appearance: none; position: relative; isolation: isolate; width: 28px; height: 28px; min-width: 28px; margin: 0; padding: 0; border: 0; border-radius: 50%;
@@ -44,6 +51,14 @@
   .ppp-action:disabled { cursor: wait; opacity: .58; }
   .ppp-action svg, .ppp-reset svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .ppp-action span { display: none; }
+  /* On the grid the pair floats over a pin's own media, so it carries the
+     surface the extension uses elsewhere rather than borrowing Pinterest's. */
+  .ppp-pin-actions[data-scope="grid"] {
+    gap: 2px; margin: 0; padding: 2px;
+    border: 1px solid var(--ppp-border); border-radius: 9px;
+    background: var(--ppp-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+  }
+  .ppp-pin-actions[data-scope="grid"] .ppp-action { border-radius: 7px; }
   /* The close-up's action bar is built from larger controls than a grid tile's. */
   .ppp-pin-actions[data-scope="closeup"] { gap: 4px; margin-right: 0; }
   .ppp-pin-actions[data-scope="closeup"] .ppp-action { width: 40px; height: 40px; min-width: 40px; }
@@ -173,22 +188,27 @@
     pointer-events: none; border-radius: 0 0 16px 16px;
   }
   .overlay {
-    position: absolute; inset: 0; display: flex; justify-content: space-between;
-    align-items: flex-start; padding: 10px; background: linear-gradient(180deg, rgba(0,0,0,.28), transparent 42%);
+    position: absolute; inset: 0; display: flex; justify-content: flex-end;
+    align-items: flex-start; padding: 10px; background: rgba(0,0,0,.24);
   }
+  .corner-icons { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 8px; }
+  .round {
+    width: 32px; height: 32px; border: 0; border-radius: 50%; background: #fff; color: #2f2f2e;
+    display: grid; place-items: center;
+  }
+  .round svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .round.dots svg { fill: currentColor; stroke: none; }
+  .visit {
+    position: absolute; left: 12px; bottom: 12px; height: 32px; padding: 0 12px; border-radius: 16px;
+    display: flex; align-items: center; background: rgba(255,255,255,.92); color: #2f2f2e; font-size: 12px; font-weight: 650;
+  }
+  .overlay, .corner-icons, .visit, .hover-panel { z-index: 1; }
+  .hover-panel { position: absolute; left: 12px; bottom: 12px; line-height: 0; }
+  .hover-panel.lifted { bottom: 52px; }
   .save {
     height: 36px; padding: 0 14px; border: 0; border-radius: 18px;
     color: #fff; background: #e60023; font: 700 13px/36px inherit;
   }
-  .cluster {
-    display: flex; align-items: center; gap: 6px; height: 36px; padding: 4px;
-    border-radius: 18px; background: #fff;
-  }
-  .menu {
-    width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: #2f2f2e;
-    display: grid; place-items: center;
-  }
-  .menu svg { width: 16px; height: 16px; fill: currentColor; }
   .footer {
     display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 2px 0;
   }
@@ -223,7 +243,7 @@
   .picker-wrap { position: fixed; left: 430px; top: 168px; }
 </style></head>
 <body>
-  <div class="caption">On boards, actions stay in the footer — no hover needed</div>
+  <div class="caption">Boards and profiles too — clear of Pinterest’s own buttons</div>
   <div class="page"><header class="topbar">
     <div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <div class="search">Search inspiration</div>
@@ -233,10 +253,6 @@
     <div class="media" style="--h:250px;--g:linear-gradient(165deg,#f0e2c4 0%,#d1a15a 50%,#7a4b22 100%)"></div>
     <div class="footer">
       <div class="title">Stoneware bottle</div>
-      <span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
-    <button class="ppp-action" type="button" aria-label="Copy media"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy media</span></button>
-    <button class="ppp-action" type="button" aria-label="Download media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Download media</span></button>
-  </span></span>
       <button class="star" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg></button>
     </div>
   </article>
@@ -244,21 +260,23 @@
     <div class="media" style="--h:198px;--g:linear-gradient(165deg,#d9e3ee 0%,#6d8eae 52%,#24364a 100%)"></div>
     <div class="footer">
       <div class="title">North window</div>
-      <span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
-    <button class="ppp-action" type="button" aria-label="Copy media"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy media</span></button>
-    <button class="ppp-action" type="button" aria-label="Download media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Download media</span></button>
-  </span></span>
       <button class="star" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg></button>
     </div>
   </article>
       <article class="pin">
-    <div class="media" style="--h:276px;--g:linear-gradient(165deg,#d7e2d4 0%,#7f9b78 52%,#2f4630 100%)"></div>
-    <div class="footer">
-      <div class="title">Olive branches</div>
-      <span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
+    <div class="media" style="--h:276px;--g:linear-gradient(165deg,#d7e2d4 0%,#7f9b78 52%,#2f4630 100%)">
+    <div class="overlay"><button class="save" type="button">Save</button></div>
+    <span class="visit">example.com</span>
+    <div class="corner-icons">
+      <button class="round" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0-4 4m4-4 4 4"/><path d="M6 13v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-5"/></svg></button>
+      <button class="round dots" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg></button>
+    </div>
+    <span class="hover-panel lifted"><span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
     <button class="ppp-action" type="button" aria-label="Copy media"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy media</span></button>
     <button class="ppp-action" type="button" aria-label="Download media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Download media</span></button>
-  </span></span>
+  </span></span></span></div>
+    <div class="footer">
+      <div class="title">Olive branches</div>
       <button class="star" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg></button>
     </div>
   </article>
@@ -266,10 +284,6 @@
     <div class="media" style="--h:214px;--g:linear-gradient(165deg,#ead7d7 0%,#b36b73 48%,#5c2d38 100%)"></div>
     <div class="footer">
       <div class="title">Linen study</div>
-      <span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
-    <button class="ppp-action" type="button" aria-label="Copy media"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy media</span></button>
-    <button class="ppp-action" type="button" aria-label="Download media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Download media</span></button>
-  </span></span>
       <button class="star" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg></button>
     </div>
   </article>
@@ -277,10 +291,6 @@
     <div class="media" style="--h:232px;--g:linear-gradient(165deg,#e7cbb3 0%,#c17a5a 48%,#6d3a2d 100%)"></div>
     <div class="footer">
       <div class="title">Terracotta wall</div>
-      <span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
-    <button class="ppp-action" type="button" aria-label="Copy media"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy media</span></button>
-    <button class="ppp-action" type="button" aria-label="Download media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Download media</span></button>
-  </span></span>
       <button class="star" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg></button>
     </div>
   </article>
@@ -288,10 +298,6 @@
     <div class="media" style="--h:188px;--g:linear-gradient(165deg,#e6dcc8 0%,#9a8a6c 50%,#3f382c 100%)"></div>
     <div class="footer">
       <div class="title">Oak interior</div>
-      <span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
-    <button class="ppp-action" type="button" aria-label="Copy media"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy media</span></button>
-    <button class="ppp-action" type="button" aria-label="Download media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Download media</span></button>
-  </span></span>
       <button class="star" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg></button>
     </div>
   </article>
@@ -299,10 +305,6 @@
     <div class="media" style="--h:260px;--g:linear-gradient(165deg,#cfd6c8 0%,#8ea08a 50%,#3c4a3e 100%)"></div>
     <div class="footer">
       <div class="title">Garden path</div>
-      <span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
-    <button class="ppp-action" type="button" aria-label="Copy media"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy media</span></button>
-    <button class="ppp-action" type="button" aria-label="Download media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Download media</span></button>
-  </span></span>
       <button class="star" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg></button>
     </div>
   </article>
@@ -310,10 +312,6 @@
     <div class="media" style="--h:206px;--g:linear-gradient(165deg,#f3d6c4 0%,#de8b63 46%,#8a3e28 100%)"></div>
     <div class="footer">
       <div class="title">Clay bowls</div>
-      <span class="ppp-root"><span class="ppp-pin-actions" data-scope="grid">
-    <button class="ppp-action" type="button" aria-label="Copy media"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copy media</span></button>
-    <button class="ppp-action" type="button" aria-label="Download media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Download media</span></button>
-  </span></span>
       <button class="star" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 14.4 8.6l5.5.8-4 3.9.9 5.4L12 16.2 7.2 18.7l.9-5.4-4-3.9 5.5-.8z"/></svg></button>
     </div>
   </article>

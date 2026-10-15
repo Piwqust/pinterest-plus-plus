@@ -21,7 +21,14 @@
   button { -webkit-tap-highlight-color: transparent; }
   .ppp-pin-actions {
     display: inline-flex; align-items: center; gap: 6px; margin-right: 2px; padding: 0; line-height: 0; vertical-align: middle;
-    background: transparent;
+    background: transparent; transition: opacity 120ms ease-out;
+  }
+  /* A grid tile keeps its buttons out of the way until the pin is pointed at
+     or they take focus, the way Pinterest treats its own tile controls. */
+  /* Visibility waits out the fade, then takes the hidden buttons out of the tab order. */
+  .ppp-root([data-ppp-hidden="true"]) .ppp-pin-actions {
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity 120ms ease-out, visibility 0s linear 120ms;
   }
   .ppp-action {
     appearance: none; position: relative; isolation: isolate; width: 28px; height: 28px; min-width: 28px; margin: 0; padding: 0; border: 0; border-radius: 50%;
@@ -44,6 +51,14 @@
   .ppp-action:disabled { cursor: wait; opacity: .58; }
   .ppp-action svg, .ppp-reset svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .ppp-action span { display: none; }
+  /* On the grid the pair floats over a pin's own media, so it carries the
+     surface the extension uses elsewhere rather than borrowing Pinterest's. */
+  .ppp-pin-actions[data-scope="grid"] {
+    gap: 2px; margin: 0; padding: 2px;
+    border: 1px solid var(--ppp-border); border-radius: 9px;
+    background: var(--ppp-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+  }
+  .ppp-pin-actions[data-scope="grid"] .ppp-action { border-radius: 7px; }
   /* The close-up's action bar is built from larger controls than a grid tile's. */
   .ppp-pin-actions[data-scope="closeup"] { gap: 4px; margin-right: 0; }
   .ppp-pin-actions[data-scope="closeup"] .ppp-action { width: 40px; height: 40px; min-width: 40px; }
@@ -173,22 +188,27 @@
     pointer-events: none; border-radius: 0 0 16px 16px;
   }
   .overlay {
-    position: absolute; inset: 0; display: flex; justify-content: space-between;
-    align-items: flex-start; padding: 10px; background: linear-gradient(180deg, rgba(0,0,0,.28), transparent 42%);
+    position: absolute; inset: 0; display: flex; justify-content: flex-end;
+    align-items: flex-start; padding: 10px; background: rgba(0,0,0,.24);
   }
+  .corner-icons { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 8px; }
+  .round {
+    width: 32px; height: 32px; border: 0; border-radius: 50%; background: #fff; color: #2f2f2e;
+    display: grid; place-items: center;
+  }
+  .round svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .round.dots svg { fill: currentColor; stroke: none; }
+  .visit {
+    position: absolute; left: 12px; bottom: 12px; height: 32px; padding: 0 12px; border-radius: 16px;
+    display: flex; align-items: center; background: rgba(255,255,255,.92); color: #2f2f2e; font-size: 12px; font-weight: 650;
+  }
+  .overlay, .corner-icons, .visit, .hover-panel { z-index: 1; }
+  .hover-panel { position: absolute; left: 12px; bottom: 12px; line-height: 0; }
+  .hover-panel.lifted { bottom: 52px; }
   .save {
     height: 36px; padding: 0 14px; border: 0; border-radius: 18px;
     color: #fff; background: #e60023; font: 700 13px/36px inherit;
   }
-  .cluster {
-    display: flex; align-items: center; gap: 6px; height: 36px; padding: 4px;
-    border-radius: 18px; background: #fff;
-  }
-  .menu {
-    width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: #2f2f2e;
-    display: grid; place-items: center;
-  }
-  .menu svg { width: 16px; height: 16px; fill: currentColor; }
   .footer {
     display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 2px 0;
   }
