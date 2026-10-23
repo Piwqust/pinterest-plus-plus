@@ -4,13 +4,20 @@ import {
   POPUP_MAX_TILE_WIDTH,
   TILE_STEP,
   clampTileWidth,
+  normalizeButtonPlacement,
   readSettings,
+  writeButtonPlacement,
   writeTileWidth,
+  type ButtonPlacement,
 } from '../../shared/settings';
 
 const PINTEREST_URL = 'https://www.pinterest.com/';
 const SETTINGS_WRITE_DEBOUNCE = 400;
 const DEFAULT_NOTE = 'Applies to open Pinterest tabs.';
+const PLACEMENT_NOTES: Record<ButtonPlacement, string> = {
+  overlay: 'Over a pin\'s image while you point at it.',
+  menu: 'Always under each pin, beside its ⋯ menu.',
+};
 
 const range = document.querySelector<HTMLInputElement>('#range')!;
 const value = document.querySelector<HTMLOutputElement>('#value')!;
@@ -18,8 +25,25 @@ const note = document.querySelector<HTMLElement>('#note')!;
 const reset = document.querySelector<HTMLButtonElement>('#reset')!;
 const open = document.querySelector<HTMLButtonElement>('#open')!;
 const version = document.querySelector<HTMLElement>('#version')!;
+const placements = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="placement"]'));
+const placementNote = document.querySelector<HTMLElement>('#placement-note')!;
 
 let writeTimer: number | undefined;
+
+function showPlacement(placement: ButtonPlacement): void {
+  for (const input of placements) input.checked = input.value === placement;
+  placementNote.textContent = PLACEMENT_NOTES[placement];
+  placementNote.dataset.error = 'false';
+}
+
+/** Open tabs read the key from `storage.onChanged` and move their buttons at once. */
+function choosePlacement(placement: ButtonPlacement): void {
+  showPlacement(placement);
+  void writeButtonPlacement(placement).catch(() => {
+    placementNote.textContent = 'Could not save to your Chrome profile.';
+    placementNote.dataset.error = 'true';
+  });
+}
 
 function showWidth(width: number): void {
   value.textContent = `${width} px`;
@@ -58,7 +82,13 @@ async function start(): Promise<void> {
   range.min = String(MIN_TILE_WIDTH);
   range.step = String(TILE_STEP);
 
-  const { tileWidth } = await readSettings();
+  const { tileWidth, buttonPlacement } = await readSettings();
+  showPlacement(buttonPlacement);
+  for (const input of placements) {
+    input.addEventListener('change', () => {
+      if (input.checked) choosePlacement(normalizeButtonPlacement(input.value));
+    });
+  }
   // A preference set from the page's own slider can exceed the popup's range,
   // which is built without a grid to measure. Widening the track to fit keeps
   // opening the popup from quietly snapping that choice down.

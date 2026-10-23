@@ -2,9 +2,11 @@ import { ICONS, SHADOW_CSS } from './ui-assets';
 
 export type MediaAction = 'copy' | 'download';
 
-export type ActionScope = 'grid' | 'closeup';
+export type ActionScope = 'grid' | 'closeup' | 'row';
 /** The close-up's bar is built from larger controls than a grid tile's. */
 const CLOSEUP_HEIGHT = 40;
+/** A card footer's three-dot menu, in CSS pixels, when it cannot be measured. */
+export const DEFAULT_ROW_SIZE = 24;
 
 export function button(className: string, label: string, icon: string): HTMLButtonElement {
   const element = document.createElement('button');
@@ -21,19 +23,25 @@ export function button(className: string, label: string, icon: string): HTMLButt
  *
  * In the close-up the pair joins Pinterest's own action bar and sizes itself to
  * match. On the grid it is a small panel of its own, laid over the pin's media
- * by the caller, wearing the same surface as the extension's resize panel — it
- * never borrows Pinterest's chrome, and never sits in a row of theirs. It also
- * starts hidden there, since a tile's controls belong to the hovered tile.
+ * by the caller, wearing the same surface as the extension's resize panel, and
+ * starts hidden, since a tile's controls belong to the hovered tile. In a card
+ * footer (`row`) it sits beside the three-dot menu at that menu's size, which
+ * the caller passes in because Pinterest scales whole cards with a transform.
  */
 export function createMediaActionHost(
   scope: ActionScope,
   onAction: (action: MediaAction, target: HTMLButtonElement) => Promise<void>,
+  rowSize = DEFAULT_ROW_SIZE,
 ): HTMLElement {
   const host = document.createElement('span');
   host.dataset.pppIgnore = 'true';
   host.style.cssText = scope === 'closeup'
     ? `display:inline-flex;flex:0 0 auto;align-self:center;align-items:center;height:${CLOSEUP_HEIGHT}px;line-height:0;vertical-align:middle;pointer-events:auto;`
-    : 'display:block;line-height:0;';
+    : scope === 'row'
+      // Never taller than the menu beside it: a footer row stretches to its
+      // tallest child, and a taller one would push into the card below.
+      ? `display:inline-flex;flex:0 0 auto;align-self:center;align-items:center;height:${rowSize}px;line-height:0;pointer-events:auto;--ppp-row-size:${rowSize}px;`
+      : 'display:block;line-height:0;';
   if (scope === 'grid') setActionsVisible(host, false);
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
@@ -47,6 +55,15 @@ export function createMediaActionHost(
   shadow.append(style, actions);
 
   host.addEventListener('pointerdown', (event) => event.stopPropagation());
+  // A mouse press must not move focus. Pinterest lays a feed card out afresh
+  // when focus enters it, at its true width instead of the scaled one it is
+  // drawn at, so a button inside the card moved out from under the pointer
+  // between press and release, and the click landed on whatever took its
+  // place. Keyboard focus is untouched: Tab still reaches the buttons.
+  host.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
   // A pin is a link, and the click that ran an action must not also open it.
   host.addEventListener('click', (event) => {
     event.preventDefault();

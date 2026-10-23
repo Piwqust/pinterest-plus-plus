@@ -14,6 +14,15 @@ describe('createMediaActionHost', () => {
   it('carries the scope so the stylesheet can size the pair', () => {
     expect(actionsOf(createMediaActionHost('grid', async () => {})).dataset.scope).toBe('grid');
     expect(actionsOf(createMediaActionHost('closeup', async () => {})).dataset.scope).toBe('closeup');
+    expect(actionsOf(createMediaActionHost('row', async () => {})).dataset.scope).toBe('row');
+  });
+
+  it('shows a footer pair at once, at the size of the menu beside it', () => {
+    const host = createMediaActionHost('row', async () => {}, 20);
+
+    expect(host.dataset.pppHidden).toBeUndefined();
+    expect(host.style.height).toBe('20px');
+    expect(host.style.pointerEvents).toBe('auto');
   });
 
   it('runs the action for the button that was pressed', () => {
@@ -41,6 +50,24 @@ describe('createMediaActionHost', () => {
     expect(event.defaultPrevented).toBe(true);
     expect(opened).toBe(0);
     link.remove();
+  });
+
+  it('keeps a mouse press from moving focus into the card it sits in', () => {
+    const card = document.createElement('div');
+    const host = createMediaActionHost('row', async () => {});
+    card.append(host);
+    document.body.append(card);
+    let reachedCard = 0;
+    card.addEventListener('mousedown', () => { reachedCard += 1; });
+
+    const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true });
+    actionsOf(host).querySelector<HTMLButtonElement>('.ppp-action')!.dispatchEvent(press);
+
+    // Pinterest re-lays a card out when focus enters it, moving the button
+    // away before the release; a cancelled press does not move focus.
+    expect(press.defaultPrevented).toBe(true);
+    expect(reachedCard).toBe(0);
+    card.remove();
   });
 });
 

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   ABSOLUTE_MAX_TILE_WIDTH,
+  DEFAULT_BUTTON_PLACEMENT,
   DEFAULT_TILE_WIDTH,
   FALLBACK_MAX_TILE_WIDTH,
   MIN_TILE_WIDTH,
@@ -88,7 +89,19 @@ describe('reading stored settings', () => {
 
   it('falls back instead of rejecting when sync storage is unavailable', async () => {
     setStorage(async () => { throw new Error('storage disabled by policy'); });
-    await expect(readSettings()).resolves.toEqual({ tileWidth: DEFAULT_TILE_WIDTH });
+    await expect(readSettings()).resolves.toEqual({
+      tileWidth: DEFAULT_TILE_WIDTH,
+      buttonPlacement: DEFAULT_BUTTON_PLACEMENT,
+    });
+  });
+
+  it('keeps the buttons on the image unless the menu placement was chosen', async () => {
+    setStorage(async () => ({}));
+    expect((await readSettings()).buttonPlacement).toBe('overlay');
+    setStorage(async () => ({ buttonPlacement: 'menu' }));
+    expect((await readSettings()).buttonPlacement).toBe('menu');
+    setStorage(async () => ({ buttonPlacement: 'sideways' }));
+    expect((await readSettings()).buttonPlacement).toBe('overlay');
   });
 
   it('offers the popup a range the on-page control can always narrow', () => {

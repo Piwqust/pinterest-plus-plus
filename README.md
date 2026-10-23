@@ -4,7 +4,7 @@ A polished Chrome extension for Pinterest that adds native-feeling media actions
 
 ## Features
 
-- Copy any Pinterest image to the clipboard as a full-resolution PNG. Point at a pin on any grid — home feed, boards, profiles, search — and Copy and Download appear in the lower-left corner of its image, rising above Pinterest's own "Visit site" button when a pin has one.
+- Copy any Pinterest image to the clipboard as a full-resolution PNG. Point at a pin on any grid — home feed, boards, profiles, search — and Copy and Download appear in the lower-left corner of its image, rising above Pinterest's own "Visit site" button when a pin has one. Prefer them always in view? Switch the popup's **Pin buttons** to *Next to ⋯* and they sit under every pin, beside its three-dot menu.
 - Get the same Copy and Download actions on the pin close-up, beside the three-dot menu in its action bar, sized to match Pinterest's own controls there. They act on the pin being viewed rather than on the related-pins grid around it.
 - Download any image or video from the highest-quality Pinterest CDN source available.
 - Copy a video's first decoded frame; if Pinterest blocks video decoding, the highest-quality poster is used as a graceful fallback.
@@ -20,7 +20,7 @@ A polished Chrome extension for Pinterest that adds native-feeling media actions
 2. Open `chrome://extensions` in Chrome.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked** and select `.output/chrome-mv3`.
-5. Open Pinterest. Point at a pin and Copy and Download appear in its lower-left corner; on a pin close-up they sit beside the three-dot menu; the tile-size slider stays visible in the lower-right corner.
+5. Open Pinterest. Point at a pin and Copy and Download appear in its lower-left corner (or, with *Next to ⋯* chosen in the popup, under every pin beside its menu); on a pin close-up they sit beside the three-dot menu; the tile-size slider stays visible in the lower-right corner.
 
 For a distributable archive, run `npm run zip`. To publish that archive to the Chrome Web Store, follow [store/SUBMIT.md](./store/SUBMIT.md). Listing copy, permission justifications, and graphic assets live in `store/`.
 

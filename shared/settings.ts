@@ -15,8 +15,20 @@ export const POPUP_MAX_TILE_WIDTH = FALLBACK_MAX_TILE_WIDTH;
 export const DEFAULT_GUTTER = 16;
 export const TILE_STEP = 4;
 
+/**
+ * Where a grid pin's Copy and Download live: on its image while it is pointed
+ * at, or always visible beside the three-dot menu under it.
+ */
+export type ButtonPlacement = 'overlay' | 'menu';
+export const DEFAULT_BUTTON_PLACEMENT: ButtonPlacement = 'overlay';
+
 export interface Settings {
   tileWidth: number;
+  buttonPlacement: ButtonPlacement;
+}
+
+export function normalizeButtonPlacement(value: unknown): ButtonPlacement {
+  return value === 'menu' || value === 'overlay' ? value : DEFAULT_BUTTON_PLACEMENT;
 }
 
 function snapDown(value: number): number {
@@ -79,11 +91,20 @@ export function widthForColumns(
  */
 export async function readSettings(): Promise<Settings> {
   try {
-    const stored = await browser.storage.sync.get('tileWidth');
-    return { tileWidth: clampTileWidth(stored.tileWidth) };
+    const stored = await browser.storage.sync.get(['tileWidth', 'buttonPlacement']);
+    return {
+      tileWidth: clampTileWidth(stored.tileWidth),
+      buttonPlacement: normalizeButtonPlacement(stored.buttonPlacement),
+    };
   } catch {
-    return { tileWidth: DEFAULT_TILE_WIDTH };
+    return { tileWidth: DEFAULT_TILE_WIDTH, buttonPlacement: DEFAULT_BUTTON_PLACEMENT };
   }
+}
+
+export async function writeButtonPlacement(placement: ButtonPlacement): Promise<ButtonPlacement> {
+  const normalized = normalizeButtonPlacement(placement);
+  await browser.storage.sync.set({ buttonPlacement: normalized });
+  return normalized;
 }
 
 export async function writeTileWidth(tileWidth: number): Promise<number> {

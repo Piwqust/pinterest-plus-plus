@@ -34,6 +34,8 @@ function largestMedia(pin: HTMLElement): { media: HTMLElement; frame: DOMRect } 
 }
 
 type PinAction = (action: MediaAction, pin: HTMLElement, target: HTMLButtonElement) => Promise<void>;
+/** Whether a pin's buttons live somewhere else, so the panel leaves it alone. */
+type ServedElsewhere = (pin: HTMLElement) => boolean;
 
 interface Box {
   left: number;
@@ -62,6 +64,20 @@ export class PinActionManager {
   private active: HTMLElement | null = null;
   private frameQueued = false;
   /**
+   * How far the panel has risen for the active pin. It only grows while that
+   * pin stays active, and holds still while the pointer is on the panel.
+   *
+   * The panel is not inside Pinterest's tile, so reaching it counts as leaving
+   * the tile for them: their hover controls, "Visit site" included, go away
+   * the moment the pointer arrives. A panel that followed them back down left
+   * the pointer on the tile, which brought the controls back and lifted the
+   * panel out from under the pointer again, in a loop for as long as it
+   * rested there: the buttons flickered between two places and could not be
+   * clicked. Keeping the highest clearance a pin has needed breaks that loop.
+   */
+  private lift = 0;
+  private pointerOnPanel = false;
+  /**
    * Pinterest renders a tile's hover controls in its own handler for the same
    * pointerover this manager hears first, from the capture phase. The pin is
    * watched while active so the panel re-places once "Visit site" exists.
@@ -70,12 +86,27 @@ export class PinActionManager {
     ? new MutationObserver(() => this.onViewportChange())
     : null;
 
-  constructor(layer: ShadowRoot, private onAction: PinAction) {
+  constructor(
+    layer: ShadowRoot,
+    private onAction: PinAction,
+    private servedElsewhere: ServedElsewhere = () => false,
+  ) {
     this.root = layer.host;
     this.host = createMediaActionHost('grid', (action, target) => this.run(action, target));
     this.host.style.position = 'fixed';
+    this.host.addEventListener('pointerenter', () => {
+      this.pointerOnPanel = true;
+    });
+    this.host.addEventListener('pointerleave', () => {
+      this.pointerOnPanel = false;
+    });
     // First in the layer, so the picker and the toast still open above it.
     layer.prepend(this.host);
+  }
+
+  /** Re-reads which pins the panel serves, after `servedElsewhere` changed its mind. */
+  refreshServed(): void {
+    if (this.active && this.servedElsewhere(this.active)) this.setActive(null);
   }
 
   start(): void {
@@ -121,7 +152,8 @@ export class PinActionManager {
     if (!(target instanceof Element)) return;
     // Reaching the panel itself must not count as leaving the pin it serves.
     if (target === this.root || this.root.contains(target)) return;
-    this.setActive(target.closest<HTMLElement>(ANY_PIN_SELECTOR));
+    const pin = target.closest<HTMLElement>(ANY_PIN_SELECTOR);
+    this.setActive(pin && !this.servedElsewhere(pin) ? pin : null);
   }
 
   private onViewportChange = (): void => {
@@ -142,6 +174,9 @@ export class PinActionManager {
     if (pin !== this.active) {
       this.pinObserver?.disconnect();
       if (pin) this.pinObserver?.observe(pin, { childList: true, subtree: true });
+      this.lift = 0;
+      // A panel taken off one pin is not under the pointer on the next.
+      this.pointerOnPanel = false;
     }
     this.active = pin;
     this.refresh();
@@ -171,7 +206,8 @@ export class PinActionManager {
       width: panel.width || PANEL_WIDTH,
       height: panel.height || PANEL_HEIGHT,
     };
-    const top = Math.max(frame.top + OVERLAY_INSET, box.top - this.clearance(pin, media, frame, box));
+    if (!this.pointerOnPanel) this.lift = Math.max(this.lift, this.clearance(pin, media, frame, box));
+    const top = Math.max(frame.top + OVERLAY_INSET, box.top - this.lift);
     this.host.style.left = `${Math.round(box.left)}px`;
     this.host.style.top = `${Math.round(top)}px`;
     return true;

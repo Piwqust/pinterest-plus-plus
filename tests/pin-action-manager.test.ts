@@ -199,6 +199,101 @@ describe('PinActionManager', () => {
     expect(panel().style.top).toBe('256px');
   });
 
+  it('holds still when Pinterest takes "Visit site" away as the pointer reaches the panel', async () => {
+    buildFeed();
+    const addVisit = () => {
+      document.querySelector('#pin-0')!.insertAdjacentHTML(
+        'beforeend',
+        '<a href="https://example.com" id="visit">Visit site</a>',
+      );
+      stubRect(document.querySelector('#visit')!, { x: 32, y: 296, width: 120, height: 32 });
+    };
+    addVisit();
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+    pointerOver(document.querySelector('#media-0')!);
+    expect(panel().style.top).toBe('256px');
+
+    // The panel is outside their tile, so reaching it ends their hover and
+    // their controls go. The panel must not follow them down: that put the
+    // pointer back on the tile, brought them back and lifted the panel again.
+    panel().dispatchEvent(new Event('pointerenter'));
+    document.querySelector('#visit')!.remove();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    await nextFrame();
+    expect(panel().style.top).toBe('256px');
+
+    // Back onto the tile: their controls return, and still nothing moves.
+    panel().dispatchEvent(new Event('pointerleave'));
+    addVisit();
+    pointerOver(document.querySelector('#media-0')!);
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    await nextFrame();
+    expect(panel().style.top).toBe('256px');
+  });
+
+  it('keeps the height a pin needed for the rest of its hover', async () => {
+    buildFeed();
+    document.querySelector('#pin-0')!.insertAdjacentHTML(
+      'beforeend',
+      '<a href="https://example.com" id="visit">Visit site</a>',
+    );
+    stubRect(document.querySelector('#visit')!, { x: 32, y: 296, width: 120, height: 32 });
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+    pointerOver(document.querySelector('#media-0')!);
+
+    document.querySelector('#visit')!.remove();
+    window.dispatchEvent(new Event('scroll'));
+    await nextFrame();
+
+    expect(panel().style.top).toBe('256px');
+  });
+
+  it('starts from the corner again on the next pin', () => {
+    buildFeed([
+      { x: 20, y: 40, width: 236, height: 300 },
+      { x: 280, y: 40, width: 236, height: 300 },
+    ]);
+    document.querySelector('#pin-0')!.insertAdjacentHTML(
+      'beforeend',
+      '<a href="https://example.com" id="visit">Visit site</a>',
+    );
+    stubRect(document.querySelector('#visit')!, { x: 32, y: 296, width: 120, height: 32 });
+    manager = build();
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+
+    pointerOver(document.querySelector('#media-0')!);
+    expect(panel().style.top).toBe('256px');
+    pointerOver(document.querySelector('#media-1')!);
+
+    expect(panel().style.left).toBe('292px');
+    expect(panel().style.top).toBe('296px');
+  });
+
+  it('leaves a pin alone whose buttons sit beside its menu instead', () => {
+    buildFeed([
+      { x: 20, y: 40, width: 236, height: 300 },
+      { x: 280, y: 40, width: 236, height: 300 },
+    ]);
+    let served = new Set(['pin-0']);
+    manager = new PinActionManager(layer, async () => {}, (pin) => served.has(pin.id));
+    manager.start();
+    stubRect(panel(), { x: 0, y: 0, width: 68, height: 32 });
+
+    pointerOver(document.querySelector('#media-0')!);
+    expect(isShown()).toBe(false);
+    pointerOver(document.querySelector('#media-1')!);
+    expect(isShown()).toBe(true);
+
+    served = new Set(['pin-0', 'pin-1']);
+    manager.refreshServed();
+    expect(isShown()).toBe(false);
+  });
+
   it('anchors to the pin`s picture, not a smaller image ahead of it', () => {
     buildFeed();
     document.querySelector('#link-0')!.insertAdjacentHTML(

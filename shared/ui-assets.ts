@@ -71,6 +71,15 @@ export const SHADOW_CSS = `
   .ppp-pin-actions[data-scope="closeup"] { gap: 4px; margin-right: 0; }
   .ppp-pin-actions[data-scope="closeup"] .ppp-action { width: 40px; height: 40px; min-width: 40px; }
   .ppp-pin-actions[data-scope="closeup"] .ppp-action svg { width: 21px; height: 21px; }
+  /* Beside a card's three-dot menu the pair takes that menu's size, so the
+     footer keeps its height and the title gives up the width. */
+  .ppp-pin-actions[data-scope="row"] { gap: 2px; margin-right: 4px; }
+  .ppp-pin-actions[data-scope="row"] .ppp-action {
+    width: var(--ppp-row-size, 24px); height: var(--ppp-row-size, 24px); min-width: var(--ppp-row-size, 24px);
+  }
+  .ppp-pin-actions[data-scope="row"] .ppp-action svg {
+    width: calc(var(--ppp-row-size, 24px) * .7); height: calc(var(--ppp-row-size, 24px) * .7);
+  }
   .ppp-grid-shell {
     position: fixed; right: 14px; bottom: 14px; pointer-events: auto;
     opacity: .7; transition: opacity 140ms ease-out;
