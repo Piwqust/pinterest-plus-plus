@@ -1,6 +1,13 @@
 import { SequentialTaskQueue, firstSuccessfulCandidate } from '../../shared/candidate-processing';
 import { withTimeout } from '../../shared/async';
-import type { ActionResponse, OffscreenCopyMessage } from '../../shared/messages';
+import { assembleStream } from '../../shared/hls-assembly';
+import type {
+  ActionResponse,
+  AssembledVideoResponse,
+  OffscreenAssembleMessage,
+  OffscreenCopyMessage,
+  OffscreenMessage,
+} from '../../shared/messages';
 
 const canvasElement = document.querySelector<HTMLCanvasElement>('#canvas');
 if (!canvasElement) throw new Error('Offscreen canvas is missing');
@@ -9,6 +16,15 @@ const copyQueue = new SequentialTaskQueue();
 const FETCH_TIMEOUT_MS = 5_000;
 const PROCESS_TIMEOUT_MS = 5_000;
 const MAX_COPY_CANDIDATES = 3;
+/** One stream file; a long video's track can run to tens of megabytes. */
+const STREAM_FETCH_TIMEOUT_MS = 60_000;
+/**
+ * The service worker releases an assembled file once Chrome has finished
+ * saving it. A worker that was shut down in the meantime never will, so the
+ * file is let go regardless after a while.
+ */
+const ASSEMBLED_LIFETIME_MS = 10 * 60_000;
+const assembledUrls = new Map<string, ReturnType<typeof setTimeout>>();
 
 async function fetchSource(candidate: string): Promise<Blob> {
   const controller = new AbortController();
@@ -185,8 +201,53 @@ async function copy(message: OffscreenCopyMessage): Promise<ActionResponse> {
   };
 }
 
-chrome.runtime.onMessage.addListener((message: OffscreenCopyMessage, _sender, sendResponse) => {
-  if (message?.target !== 'offscreen' || message.type !== 'OFFSCREEN_COPY') return false;
+async function loadStreamFile(url: string): Promise<Uint8Array> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), STREAM_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { credentials: 'omit', signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return new Uint8Array(await response.arrayBuffer());
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+function release(url: string): void {
+  const timer = assembledUrls.get(url);
+  if (timer === undefined) return;
+  globalThis.clearTimeout(timer);
+  assembledUrls.delete(url);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Builds the video in this document because a service worker cannot mint the
+ * `blob:` URL Chrome's download manager needs to save a file that never
+ * existed on a server.
+ */
+async function assemble(message: OffscreenAssembleMessage): Promise<AssembledVideoResponse> {
+  try {
+    const bytes = await assembleStream(message.stream, loadStreamFile);
+    const url = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'video/mp4' }));
+    assembledUrls.set(url, globalThis.setTimeout(() => release(url), ASSEMBLED_LIFETIME_MS));
+    return { ok: true, message: 'Video assembled', url };
+  } catch {
+    return { ok: false, message: 'Could not assemble the video from its stream' };
+  }
+}
+
+chrome.runtime.onMessage.addListener((message: OffscreenMessage, _sender, sendResponse) => {
+  if (message?.target !== 'offscreen') return false;
+  if (message.type === 'OFFSCREEN_RELEASE') {
+    release(message.url);
+    return false;
+  }
+  if (message.type === 'OFFSCREEN_ASSEMBLE_VIDEO') {
+    assemble(message).then(sendResponse);
+    return true;
+  }
+  if (message.type !== 'OFFSCREEN_COPY') return false;
   copyQueue.run(() => copy(message)).then(sendResponse, () => {
     sendResponse({ ok: false, message: 'Could not process this media' } satisfies ActionResponse);
   });

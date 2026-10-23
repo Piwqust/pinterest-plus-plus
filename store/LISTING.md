@@ -125,13 +125,13 @@ Used when the user clicks Copy. The selected pin image (or a video frame/poster)
 **downloads**
 
 ```
-Used when the user clicks Download. Chrome’s download manager saves the verified media file from Pinterest’s CDN to the user’s Downloads folder. The extension does not download anything until that click.
+Used when the user clicks Download. Chrome’s download manager saves the verified media file from Pinterest’s CDN to the user’s Downloads folder, or, for a video Pinterest publishes only as an HLS stream, the MP4 the extension assembled from that stream locally. The extension does not download anything until that click.
 ```
 
 **offscreen**
 
 ```
-Manifest V3 service workers cannot draw to a canvas or write the clipboard. An offscreen document converts the selected Pinterest media to PNG and writes it to the clipboard. Declared reason: CLIPBOARD and BLOBS. Justification in the extension: “Convert Pinterest media to PNG and write it to the clipboard.”
+Manifest V3 service workers cannot draw to a canvas, write the clipboard, or create blob: URLs. An offscreen document converts the selected Pinterest media to PNG and writes it to the clipboard, and joins a video that Pinterest publishes only as an HLS stream into one MP4 whose blob: URL the download manager saves. Declared reason: CLIPBOARD and BLOBS. Justification in the extension: “Convert Pinterest media to PNG for the clipboard, and assemble streamed videos into files.”
 ```
 
 **storage**
@@ -143,7 +143,7 @@ Stores one number: the user’s preferred grid tile width, via chrome.storage.sy
 **Host permission `https://*.pinterest.com/*`**
 
 ```
-Content scripts run only on Pinterest pages. They attach the Copy and Download buttons and the grid slider, and they read the media URL of the pin the user clicked. The extension does not run on other sites.
+Content scripts run only on Pinterest pages. They attach the Copy and Download buttons and the grid slider, and they read the media URL of the pin the user clicked. On Download they ask pinterest.com for that pin’s media list, the same same-origin request Pinterest’s own page makes, so every carousel slide resolves to its real file. The extension does not run on other sites.
 ```
 
 **Host permission `https://*.pinimg.com/*`**

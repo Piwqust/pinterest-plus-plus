@@ -6,6 +6,7 @@ import type { GridResizer } from './grid-resizer';
 import { GridWidthController } from './grid-width-controller';
 import type { GridMetrics, GridStatusDetail } from './grid-bridge-events';
 import { findPinCloseup } from './pin-closeup';
+import { findPinId, pinIdFromUrl, resolvePinMedia } from './pin-data';
 import {
   DEFAULT_GUTTER,
   DEFAULT_TILE_WIDTH,
@@ -24,6 +25,18 @@ const VIEWPORT_RESIZE_DEBOUNCE = 150;
 const SETTINGS_WRITE_DEBOUNCE = 400;
 /** Reserved for the panel and the page's own gutters when the grid is unmeasurable. */
 export const VIEWPORT_WIDTH_RESERVE = 32;
+const COPY_TIMEOUT_MS = 25_000;
+/** A video with no published file is assembled from its stream, which takes a while. */
+const DOWNLOAD_TIMEOUT_MS = 180_000;
+
+/**
+ * What a download offers: the slides Pinterest's record of the pin lists, or,
+ * when the record cannot be read, what the page happens to have rendered.
+ */
+async function mediaForDownload(pinId: string | null, rendered: () => PinMediaOption[]): Promise<PinMediaOption[]> {
+  const recorded = await resolvePinMedia(pinId);
+  return recorded.length > 0 ? recorded : rendered();
+}
 
 export class GridUi {
   private widthController: GridWidthController;
@@ -238,8 +251,16 @@ export class GridUi {
     this.closePicker(false);
   }
 
+  /**
+   * Copy works from what is on screen, since the clipboard write has to start
+   * while the click still counts as the user's. A download can afford to ask
+   * Pinterest what the pin really holds first.
+   */
   async performPinAction(action: MediaAction, pin: HTMLElement, target: HTMLButtonElement): Promise<void> {
-    await this.performMediaAction(action, collectPinMedia(pin), target);
+    const media = action === 'download'
+      ? await this.whileBusy(target, () => mediaForDownload(findPinId(pin), () => collectPinMedia(pin)))
+      : collectPinMedia(pin);
+    await this.performMediaAction(action, media, target);
   }
 
   /**
@@ -248,8 +269,25 @@ export class GridUi {
    * remounting the card, still acts on what is actually on screen.
    */
   async performCloseupAction(action: MediaAction, target: HTMLButtonElement): Promise<void> {
-    const closeup = findPinCloseup(document);
-    await this.performMediaAction(action, closeup ? collectMediaOptions(closeup.media) : [], target);
+    const rendered = () => {
+      const closeup = findPinCloseup(document);
+      return closeup ? collectMediaOptions(closeup.media) : [];
+    };
+    const media = action === 'download'
+      ? await this.whileBusy(target, () => mediaForDownload(pinIdFromUrl(location.href), rendered))
+      : rendered();
+    await this.performMediaAction(action, media, target);
+  }
+
+  private async whileBusy<T>(target: HTMLButtonElement, task: () => Promise<T>): Promise<T> {
+    target.disabled = true;
+    target.setAttribute('aria-busy', 'true');
+    try {
+      return await task();
+    } finally {
+      target.disabled = false;
+      target.removeAttribute('aria-busy');
+    }
   }
 
   private async performMediaAction(
@@ -273,7 +311,7 @@ export class GridUi {
     media: PinMediaOption,
     target: HTMLButtonElement,
   ): Promise<boolean> {
-    if (action === 'download' && media.candidates.length === 0) {
+    if (action === 'download' && media.candidates.length === 0 && media.streams.length === 0) {
       this.showToast(
         media.kind === 'video'
           ? 'Pinterest has not exposed a downloadable video file for this slide'
@@ -299,6 +337,7 @@ export class GridUi {
           type: 'DOWNLOAD_MEDIA',
           kind: media.kind,
           candidates: media.candidates,
+          streams: media.streams,
           suggestedName: media.suggestedName,
         };
 
@@ -314,7 +353,7 @@ export class GridUi {
       if (!isActionResponse(response) || !response.ok) {
         response = await withTimeout(
           browser.runtime.sendMessage(message),
-          25_000,
+          action === 'copy' ? COPY_TIMEOUT_MS : DOWNLOAD_TIMEOUT_MS,
           action === 'copy' ? 'Copy timed out. Please try again.' : 'Download timed out. Please try again.',
         );
       }

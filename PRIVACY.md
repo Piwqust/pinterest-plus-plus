@@ -13,9 +13,9 @@ The extension’s content scripts run only on `pinterest.com` pages. They do not
 
 ### Website content, on your action
 
-When you click **Copy** or **Download** on a pin, the extension reads that pin’s media addresses from the current page and fetches the file from Pinterest’s own hosts (`pinterest.com` and `pinimg.com`) over HTTPS. It does this only for the pin you clicked, and only after you click.
+When you click **Copy** or **Download** on a pin, the extension reads that pin’s media addresses and fetches the file from Pinterest’s own hosts (`pinterest.com` and `pinimg.com`) over HTTPS. For Download it first asks `pinterest.com` for that pin’s list of media files — the same request Pinterest’s own page makes when it opens a pin — and falls back to the addresses on the current page. It does this only for the pin you clicked, and only after you click.
 
-Copy converts the image (or a video’s first decoded frame, or its poster) to PNG inside Chrome and writes it to your clipboard. Download saves the verified media file through Chrome’s download manager to your device.
+Copy converts the image (or a video’s first decoded frame, or its poster) to PNG inside Chrome and writes it to your clipboard. Download saves the verified media file through Chrome’s download manager to your device. When Pinterest publishes a video only as a stream, Download joins the stream’s pieces into one MP4 inside Chrome before saving it.
 
 Grid resizing reads the page’s masonry layout in the browser so columns can be reflowed at the width you choose. That layout data is not stored and is not sent anywhere.
 

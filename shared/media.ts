@@ -19,7 +19,16 @@ const VIDEO_TIERS = ['iht', 'mc'] as const;
  */
 const VIDEO_QUALITIES = ['1080p', '720p', '480p', '360p'] as const;
 const VIDEO_QUALITY_SEGMENT = /\/(2160|1440|1080|720|540|480|360)p\//i;
+/** The newer encoder names a rung by its width instead: `expMp4/<id>_720w.mp4`. */
+const VIDEO_WIDTH_SUFFIX = /_(\d{3,4})w\.mp4$/i;
+/** Experimental rungs, `expMp4/<id>_t1.mp4` to `_t4.mp4`, all below 720p. */
+const VIDEO_TIER_SUFFIX = /_t(\d)\.mp4$/i;
+/** HEVC needs a codec Windows does not ship, so it only wins when it is all there is. */
+const HEVC_PATH = /\/hevc/i;
+const HEVC_PENALTY = 100_000;
 const VIDEO_ORIGINALS_SEGMENT = /\/originals?\//i;
+/** A rendition or audio playlist, whose master sits beside it under the bare id. */
+const RENDITION_PLAYLIST = /^([a-f\d]{32})_(?:\d+w|audio)\.m3u8$/i;
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 const MEDIA_CONTENT_TYPE: Record<MediaKind, string> = { image: 'image/', video: 'video/' };
 /** A byte stream the CDN declines to type is still the file that was asked for. */
@@ -28,6 +37,11 @@ const OPAQUE_CONTENT_TYPE = 'application/octet-stream';
 export interface MediaDescriptor {
   kind: MediaKind;
   candidates: string[];
+  /**
+   * HLS playlists for a video. Every video Pinterest plays has one, so it is
+   * both the map to the progressive files and the source of last resort.
+   */
+  streams: string[];
   posterCandidates: string[];
   suggestedName: string;
 }
@@ -71,6 +85,34 @@ export function isDownloadableVideoUrl(value: string): boolean {
       !VIDEO_MANIFEST_EXTENSION.test(url.pathname);
   } catch {
     return false;
+  }
+}
+
+export function isVideoStreamUrl(value: string): boolean {
+  if (!isAllowedMediaUrl(value)) return false;
+  try {
+    const url = new URL(value);
+    return PINTEREST_VIDEO_HOST.test(url.hostname) && /\.m3u8$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A stream URL the player requested, rewritten to its master playlist where it
+ * named one rendition: only the master lists the audio a CMAF video keeps apart.
+ */
+function masterStreamFor(value: string): string {
+  try {
+    const url = new URL(value);
+    const segments = url.pathname.split('/');
+    const match = segments.at(-1)?.match(RENDITION_PLAYLIST);
+    if (!match?.[1]) return value;
+    segments[segments.length - 1] = `${match[1]}.m3u8`;
+    url.pathname = segments.join('/');
+    return url.href;
+  } catch {
+    return value;
   }
 }
 
@@ -169,6 +211,13 @@ export function videoCandidatesForHash(hash: string): string[] {
   ));
 }
 
+/** The master playlists a media id can live under; the one that answers is kept. */
+export function videoStreamsForHash(hash: string): string[] {
+  if (!MEDIA_HASH.test(hash)) return [];
+  const shard = `${hash.slice(0, 2)}/${hash.slice(2, 4)}/${hash.slice(4, 6)}`;
+  return VIDEO_TIERS.map((tier) => `https://v1.pinimg.com/videos/${tier}/hls/${shard}/${hash}.m3u8`);
+}
+
 /**
  * Images rendered for the slide the video belongs to. Pinterest often renders
  * the frame as a sibling image instead of a `poster` attribute, so nearby images
@@ -222,6 +271,16 @@ function recoveredVideoCandidates(video: HTMLVideoElement): string[] {
   return [...new Set([...requested, ...derived])];
 }
 
+/** Playlists for a slide whose player exposes nothing but a `blob:` source. */
+function recoveredVideoStreams(video: HTMLVideoElement): string[] {
+  const hashes = slideMediaHashes(video);
+  if (hashes.length === 0) return [];
+  const requested = requestedMediaUrls()
+    .filter((entry) => isVideoStreamUrl(entry) && hashes.some((hash) => entry.includes(hash)))
+    .map(masterStreamFor);
+  return uniqueAllowed([...requested, ...hashes.flatMap(videoStreamsForHash)]);
+}
+
 export function parseSrcset(srcset: string | null | undefined): string[] {
   if (!srcset) return [];
 
@@ -254,21 +313,29 @@ function uniqueAllowed(values: Array<string | null | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value && isAllowedMediaUrl(value))))];
 }
 
+function qualityRank(pathname: string): number {
+  const quality = pathname.match(VIDEO_QUALITY_SEGMENT)?.[1] ?? pathname.match(VIDEO_WIDTH_SUFFIX)?.[1];
+  if (quality) return Number(quality);
+  const tier = pathname.match(VIDEO_TIER_SUFFIX)?.[1];
+  if (tier) return Number(tier) * 100;
+  if (VIDEO_ORIGINALS_SEGMENT.test(pathname)) return 10_000;
+  return 0;
+}
+
 /**
- * Ranks by the quality path segment only. Pinterest names a video file with a
- * 32-character hex media id, and a hex id can contain a bare `1080` or `720`,
- * so scanning the whole URL for digits can rank a low rung above a high one.
+ * Ranks by the quality Pinterest writes into the path or the file suffix only.
+ * Pinterest names a video file with a 32-character hex media id, and a hex id
+ * can contain a bare `1080` or `720`, so scanning the whole URL for digits can
+ * rank a low rung above a high one.
  */
-function rankVideoUrl(value: string): number {
+export function rankVideoUrl(value: string): number {
   try {
     const { pathname } = new URL(value);
-    const quality = pathname.match(VIDEO_QUALITY_SEGMENT)?.[1];
-    if (quality) return Number(quality);
-    if (VIDEO_ORIGINALS_SEGMENT.test(pathname)) return 10_000;
+    return qualityRank(pathname) - (HEVC_PATH.test(pathname) ? HEVC_PENALTY : 0);
   } catch {
     // An unparseable URL simply ranks last.
   }
-  return 0;
+  return Number.MIN_SAFE_INTEGER;
 }
 
 function urlsFromMediaAttribute(value: string): string[] {
@@ -323,6 +390,17 @@ export function videoCandidates(video: HTMLVideoElement): string[] {
   // its extension-less progressive routes 403. The media-id routes stay behind
   // it as fallbacks instead of being dropped whenever the DOM named anything.
   return [...new Set([...exposed, ...recoveredVideoCandidates(video)])];
+}
+
+export function videoStreams(video: HTMLVideoElement): string[] {
+  const exposed = [
+    ...Array.from(video.querySelectorAll('source')).map((source) => absoluteUrl(source.src)),
+    absoluteUrl(video.currentSrc),
+    absoluteUrl(video.src),
+    ...lazyVideoCandidates(video),
+  ].filter((value): value is string => Boolean(value && isVideoStreamUrl(value)))
+    .map(masterStreamFor);
+  return uniqueAllowed([...exposed, ...recoveredVideoStreams(video)]);
 }
 
 export function posterCandidates(video: HTMLVideoElement): string[] {
@@ -404,6 +482,7 @@ export function describeMedia(element: HTMLImageElement | HTMLVideoElement): Med
   return {
     kind,
     candidates,
+    streams: kind === 'video' ? videoStreams(element as HTMLVideoElement) : [],
     posterCandidates: posters,
     suggestedName: safeFilename(candidates[0] ?? posters[0] ?? '', kind, readableMediaTitle(element)),
   };

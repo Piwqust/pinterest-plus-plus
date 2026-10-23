@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectPinMedia, describeMedia, imageCandidates, isAllowedMediaUrl, isDownloadableVideoUrl, isMediaResponse, mediaFileExtension, parseSrcset, posterCandidates, safeFilename, toOriginalPinimgUrl, videoCandidates, videoCandidatesFromTimeline } from '../shared/media';
+import { collectPinMedia, describeMedia, imageCandidates, isAllowedMediaUrl, isDownloadableVideoUrl, isMediaResponse, isVideoStreamUrl, mediaFileExtension, parseSrcset, posterCandidates, rankVideoUrl, safeFilename, toOriginalPinimgUrl, videoCandidates, videoCandidatesFromTimeline, videoStreams, videoStreamsForHash } from '../shared/media';
 
 describe('Pinterest media resolution', () => {
   it('sorts srcset candidates from largest to smallest', () => {
@@ -236,5 +236,49 @@ describe('Pinterest media resolution', () => {
   it('does not accept an image response as a video file, or the reverse', () => {
     expect(isMediaResponse(200, 'image/jpeg', 'video')).toBe(false);
     expect(isMediaResponse(200, 'video/mp4', 'image')).toBe(false);
+  });
+});
+
+describe('video streams on the page', () => {
+  const hash = '2c31612eb2b0753d18753dcbb6bc5552';
+
+  it('hands over the master playlist when the player exposes one rendition', () => {
+    const video = document.createElement('video');
+    video.src = `https://v1.pinimg.com/videos/iht/hls/2c/31/61/${hash}_720w.m3u8`;
+
+    expect(videoStreams(video)).toEqual([`https://v1.pinimg.com/videos/iht/hls/2c/31/61/${hash}.m3u8`]);
+    expect(describeMedia(video).streams).toEqual(videoStreams(video));
+  });
+
+  it('names the playlists a blob-backed slide\'s media id can live under', () => {
+    const video = document.createElement('video');
+    video.setAttribute('src', 'blob:https://www.pinterest.com/6f6f-4c0d');
+    video.poster = `https://i.pinimg.com/videos/thumbnails/originals/2c/31/61/${hash}.0000000.jpg`;
+
+    expect(videoStreams(video)).toEqual([
+      `https://v1.pinimg.com/videos/iht/hls/2c/31/61/${hash}.m3u8`,
+      `https://v1.pinimg.com/videos/mc/hls/2c/31/61/${hash}.m3u8`,
+    ]);
+    expect(videoStreamsForHash('not-a-hash')).toEqual([]);
+  });
+
+  it('gives an image no streams', () => {
+    const image = document.createElement('img');
+    image.src = 'https://i.pinimg.com/236x/aa/bb/pin.jpg';
+    expect(describeMedia(image).streams).toEqual([]);
+  });
+
+  it('recognises only Pinterest playlists as streams', () => {
+    expect(isVideoStreamUrl(`https://v1.pinimg.com/videos/iht/hls/2c/31/61/${hash}.m3u8`)).toBe(true);
+    expect(isVideoStreamUrl(`https://v1.pinimg.com/videos/iht/expMp4/2c/31/61/${hash}_720w.mp4`)).toBe(false);
+    expect(isVideoStreamUrl('https://example.com/videos/clip.m3u8')).toBe(false);
+  });
+
+  it('ranks the newer encoder\'s width-named files with the legacy rungs, and HEVC below all', () => {
+    expect(rankVideoUrl(`https://v1.pinimg.com/videos/iht/expMp4/2c/31/61/${hash}_720w.mp4`)).toBe(720);
+    expect(rankVideoUrl(`https://v1.pinimg.com/videos/mc/720p/2c/31/61/${hash}.mp4`)).toBe(720);
+    expect(rankVideoUrl(`https://v1.pinimg.com/videos/mc/expMp4/2c/31/61/${hash}_t4.mp4`)).toBeLessThan(480);
+    expect(rankVideoUrl(`https://v1.pinimg.com/videos/iht/hevcMp4V3/2c/31/61/${hash}_720w.mp4`))
+      .toBeLessThan(rankVideoUrl(`https://v1.pinimg.com/videos/mc/360p/2c/31/61/${hash}.mp4`));
   });
 });
