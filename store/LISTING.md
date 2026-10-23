@@ -92,15 +92,15 @@ Upload from `store/assets/`. PNG at the exact pixel sizes below. The promo tiles
 |---|---|---|
 | Store icon | `icon-128.png` | 128×128 |
 | Screenshot 1 | `screenshot-1-copy-download.png` | 1280×800 |
-| Screenshot 2 | `screenshot-2-boards.png` | 1280×800 |
-| Screenshot 3 | `screenshot-3-grid-slider.png` | 1280×800 |
-| Screenshot 4 | `screenshot-4-closeup.png` | 1280×800 |
-| Screenshot 5 | `screenshot-5-media-picker.png` | 1280×800 |
+| Screenshot 2 | `screenshot-2-videos.png` | 1280×800 |
+| Screenshot 3 | `screenshot-3-placement.png` | 1280×800 |
+| Screenshot 4 | `screenshot-4-grid-slider.png` | 1280×800 |
+| Screenshot 5 | `screenshot-5-copy.png` | 1280×800 |
 | Small promo tile | `promo-small-440x280.png` | 440×280 |
 | Marquee promo tile | `promo-marquee-1400x560.png` | 1400×560 |
 | YouTube video | skip | optional |
 
-Screenshots are mock Pinterest-like pages that use the extension’s real control CSS and icons. They are not captures of pinterest.com and do not use Pinterest’s logo or copyrighted pins.
+Screenshots are mock Pinterest-like pages that use the extension’s real control CSS, popup CSS and icons, set on a dark monochrome backdrop with the keycap brand mark. The mark’s 48 and 128 px icons are cut from `store/brand/keycap-master.png`; 16 and 32 px are drawn on the pixel grid by `npm run icons`. The pin pictures were generated for this listing (`store/scenes/media/`); they are not captures of pinterest.com, not other people’s pins, and no Pinterest logo or brand red appears. Regenerate everything with `npm run store:assets` (needs Chrome and a network connection for the Inter web font).
 
 ---
 
@@ -109,7 +109,7 @@ Screenshots are mock Pinterest-like pages that use the extension’s real contro
 **Single purpose**
 
 ```
-Add copy, download, and grid-size controls to Pinterest pages so the user can save pin media and resize the feed. The toolbar popup exposes the same grid-size setting.
+Add copy, download, and grid-size controls to Pinterest pages so the user can save pin media and resize the feed. The toolbar popup exposes the same grid-size setting and where the buttons sit.
 ```
 
 **Remote code:** No, I am not using remote code.
@@ -137,7 +137,7 @@ Manifest V3 service workers cannot draw to a canvas, write the clipboard, or cre
 **storage**
 
 ```
-Stores one number: the user’s preferred grid tile width, via chrome.storage.sync, so the layout can follow Chrome Sync across the user’s profiles. The toolbar popup reads and writes that same key, which is how it resizes already-open Pinterest tabs without any tab access. No other keys are written.
+Stores two settings via chrome.storage.sync, so they can follow Chrome Sync across the user’s profiles: tileWidth, the preferred grid tile width as a number, and buttonPlacement, whether Copy and Download sit on the pin image or beside its ⋯ menu. The toolbar popup reads and writes those same keys, which is how it updates already-open Pinterest tabs without any tab access. No other keys are written.
 ```
 
 **Host permission `https://*.pinterest.com/*`**

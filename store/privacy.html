@@ -43,12 +43,12 @@
 <body>
   <main>
     <h1>Privacy Policy</h1>
-    <p class="meta">Pinterest Plus Plus · Effective date: 9 September 2026</p>
+    <p class="meta">Pinterest Plus Plus · Effective date: 23 October 2026</p>
     <p>Pinterest Plus Plus is a Chrome extension that adds Copy, Download, and grid-size controls to Pinterest pages. This policy describes how the extension handles information. It is written to meet the Chrome Web Store User Data Policy, including the Limited Use requirements.</p>
     <p>Pinterest Plus Plus is an independent project and is not affiliated with, endorsed by, or sponsored by Pinterest, Inc.</p>
 
     <h2>What the extension handles</h2>
-    <p>The extension’s content scripts run only on <code>pinterest.com</code> pages. They do not run on other websites. The toolbar popup is a page inside the extension itself; it reads and writes only the tile-width setting described below.</p>
+    <p>The extension’s content scripts run only on <code>pinterest.com</code> pages. They do not run on other websites. The toolbar popup is a page inside the extension itself; it reads and writes only the two settings described below.</p>
 
     <h2>Website content, on your action</h2>
     <p>When you click <strong>Copy</strong> or <strong>Download</strong> on a pin, the extension reads that pin’s media addresses and fetches the file from Pinterest’s own hosts (<code>pinterest.com</code> and <code>pinimg.com</code>) over HTTPS. For Download it first asks <code>pinterest.com</code> for that pin’s list of media files — the same request Pinterest’s own page makes when it opens a pin — and falls back to the addresses on the current page. It does this only for the pin you clicked, and only after you click.</p>
@@ -56,8 +56,8 @@
     <p>Grid resizing reads the page’s masonry layout in the browser so columns can be reflowed at the width you choose. That layout data is not stored and is not sent anywhere.</p>
 
     <h2>Settings stored in Chrome</h2>
-    <p>The only setting the extension stores is your preferred grid tile width, as a number, using <code>chrome.storage.sync</code>. If Chrome Sync is enabled on the profile, Chrome may copy that number to your other signed-in Chrome profiles. The extension does not store pin contents, URLs, names, or accounts.</p>
-    <p>Removing the extension removes its locally stored settings. Synced copies of that number are governed by your Chrome Sync settings.</p>
+    <p>The extension stores two settings using <code>chrome.storage.sync</code>: your preferred grid tile width, as a number, and where the Copy and Download buttons sit on grid pins (on the image, or next to the ⋯ menu). If Chrome Sync is enabled on the profile, Chrome may copy those two settings to your other signed-in Chrome profiles. The extension does not store pin contents, URLs, names, or accounts.</p>
+    <p>Removing the extension removes its locally stored settings. Synced copies of those settings are governed by your Chrome Sync settings.</p>
 
     <h2>What the extension does not collect</h2>
     <p>Pinterest Plus Plus does not:</p>
@@ -69,24 +69,24 @@
       <li>sell, rent, or share data with third parties</li>
       <li>access cookies, browsing history, or sites other than Pinterest and Pinimg</li>
     </ul>
-    <p>The developer never receives the media you copy or download, the pins you view, or your tile-width preference.</p>
+    <p>The developer never receives the media you copy or download, the pins you view, or your settings.</p>
 
     <h2>How information is used (Limited Use)</h2>
     <p>Information the extension handles is used only to provide its user-facing features:</p>
     <ul>
       <li>pin media URLs, to copy or download the item you selected</li>
       <li>the page’s masonry layout, to resize the grid you are looking at</li>
-      <li>the stored tile width, to remember your grid size</li>
+      <li>the stored tile width and button placement, to remember your grid size and where the buttons sit</li>
     </ul>
     <p>It is not used for advertising, profiling, creditworthiness, or any purpose unrelated to those features. Nothing is transferred to the developer or to third parties except:</p>
     <ul>
-      <li>Chrome itself, when it writes the clipboard, runs a download, or syncs the tile-width number</li>
+      <li>Chrome itself, when it writes the clipboard, runs a download, or syncs the two settings</li>
       <li>Pinterest’s CDN, when Chrome fetches the media file you asked to copy or download</li>
     </ul>
     <p>Those transfers use HTTPS.</p>
 
     <h2>Retention</h2>
-    <p>Pin media is not retained by the extension. Copied images live in your clipboard until you replace them. Downloaded files live on your device under your control. The tile-width number remains until you reset it, change it, or remove the extension.</p>
+    <p>Pin media is not retained by the extension. Copied images live in your clipboard until you replace them. Downloaded files live on your device under your control. The two settings remain until you reset or change them, or remove the extension.</p>
 
     <h2>Security</h2>
     <p>Media requests use HTTPS. Candidate URLs are allowlisted to <code>pinterest.com</code> and <code>pinimg.com</code> before fetch or download. There is no developer backend to breach.</p>
