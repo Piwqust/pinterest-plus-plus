@@ -2,20 +2,21 @@
 
 Всё, что можно подготовить без аккаунта Google, уже лежит в репозитории. Ниже — шаги, которые может сделать только владелец аккаунта.
 
-ZIP: `.output/pinterest-plus-plus-1.0.8-chrome.zip` после `npm run zip`.  
+ZIP: `.output/pinterest-plus-plus-1.0.9-chrome.zip` после `npm run zip`.  
 Тексты: `store/LISTING.md`.  
 Картинки: `store/assets/`.  
 Политика: https://piwqust.github.io/pinterest-plus-plus/ (`store/privacy.html`, копия в `docs/index.html`).
 
 ## Обновление уже опубликованного расширения
 
-Если item уже есть в дашборде, шаги 1–2 и 4 не нужны.
+Если item уже есть в дашборде, шаги 1–2 и 4 не нужны. Что изменилось в 1.0.9: скачивание видео идёт по данным пина из Pinterest и при необходимости собирает файл из HLS-потока локально; панель над пином больше не мигает; в попапе появилась настройка «Pin buttons» (на картинке или рядом с ⋯). Разрешения и манифест не менялись.
 
 1. `npm test`, `npm run typecheck`, `npm run zip`.
-2. Dashboard → ваш item → **Package** → **Upload new package** → `.output/pinterest-plus-plus-1.0.8-chrome.zip`. Версия в манифесте должна быть выше опубликованной.
-3. **Store listing**: замените подробное описание английским блоком из `LISTING.md`. Скриншоты: удалите старый «On boards, actions stay in the footer» и загрузите заново `screenshot-1-copy-download.png` и `screenshot-2-boards.png`; 3–5 не изменились.
-4. **Privacy practices**: разрешения не менялись, обоснования те же. Обновите только поле test instructions (Reviewer notes из `LISTING.md`), если вы его заполняли: кнопки теперь появляются при наведении на пин.
-5. **Submit for review**.
+2. **Политика конфиденциальности — до Submit.** В 1.0.9 изменён раздел «Website content, on your action»: расширение спрашивает у `pinterest.com` список медиа пина и может собрать видео из потока внутри Chrome. Новый текст лежит в `docs/index.html` этой ветки; GitHub Pages покажет его только после того, как он попадёт в ветку, из которой публикуется сайт. Проверьте https://piwqust.github.io/pinterest-plus-plus/ в инкогнито: там должна быть фраза «For Download it first asks pinterest.com…».
+3. Dashboard → ваш item → **Package** → **Upload new package** → `.output/pinterest-plus-plus-1.0.9-chrome.zip`. Версия в манифесте должна быть выше опубликованной.
+4. **Store listing**: замените подробное описание английским блоком из `LISTING.md` (добавлена фраза про размещение кнопок рядом с ⋯). Скриншоты не менялись: они показывают размещение по умолчанию.
+5. **Privacy practices**: разрешения те же. Обновите обоснование `offscreen` (теперь оно упоминает сборку видео из потока), обоснование host permission `pinterest.com` (запрос списка медиа пина) и, если заполняли, test instructions — всё из `LISTING.md`. Data use не меняется: только **Website content**.
+6. **Submit for review**.
 
 ## 1. Аккаунт разработчика
 
@@ -46,7 +47,7 @@ npm run typecheck
 npm run zip
 ```
 
-Загружайте `.output/pinterest-plus-plus-1.0.8-chrome.zip`. Это production MV3-пакет, не исходники.
+Загружайте `.output/pinterest-plus-plus-1.0.9-chrome.zip`. Это production MV3-пакет, не исходники.
 
 ## 4. New item
 
