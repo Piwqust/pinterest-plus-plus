@@ -261,7 +261,7 @@ html, body { width: 1280px; height: 800px; }</style></head>
     <h1>Buttons where you want them.</h1>
     <p class="sub">Over the pin you point at, or always beside every pin’s ⋯ menu. One switch in the popup.</p>
   </div>
-    <div style="position:absolute;left:318px;top:246px;z-index:30;width:300px"><div style="zoom:0.92"><div class="label">On the image</div><div class="card-frame"><article class="pin">
+    <div style="position:absolute;left:196px;top:246px;z-index:30;width:300px"><div style="zoom:0.92"><div class="label">On the image</div><div class="card-frame"><article class="pin">
     <div class="media"><img src="media/04-street-style.jpg" alt="" style="--ratio:0.8" />
       
       <div class="hover">
@@ -277,7 +277,7 @@ html, body { width: 1280px; height: 800px; }</style></head>
     </div>
     <div class="foot"><span class="title">Autumn coat outfit</span><span class="more"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span></div>
   </article></div></div></div>
-    <div style="position:absolute;left:662px;top:246px;z-index:30;width:300px"><div style="zoom:0.92"><div class="label">Next to <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></div><div class="card-frame"><article class="pin">
+    <div style="position:absolute;left:512px;top:246px;z-index:30;width:300px"><div style="zoom:0.92"><div class="label">Next to <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></div><div class="card-frame"><article class="pin">
     <div class="media"><img src="media/02-vases.jpg" alt="" style="--ratio:0.8" />
       
       
@@ -290,13 +290,40 @@ html, body { width: 1280px; height: 800px; }</style></head>
     <iframe srcdoc="<!doctype html><html><head><link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot; />
 <link rel=&quot;preconnect&quot; href=&quot;https://fonts.gstatic.com&quot; crossorigin />
 <link href=&quot;https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=block&quot; rel=&quot;stylesheet&quot; /><link rel=&quot;stylesheet&quot; href=&quot;../../entrypoints/popup/style.css&quot; />
-<style>html,body{margin:0;background:transparent}body{width:292px;zoom:1.1}.popup{padding:0}.card{border-color:transparent}</style></head><body><main class=&quot;popup&quot;>
+<style>html,body{margin:0;background:transparent}body{width:292px;zoom:1.12}body::before{display:none}.popup{padding:0}.card{border-color:transparent;box-shadow:none}</style></head><body><main class=&quot;popup&quot;>
 <section class=&quot;card&quot; aria-labelledby=&quot;placement-heading&quot;>
-  <h2 class=&quot;eyebrow&quot; id=&quot;placement-heading&quot;>Pin buttons</h2>
-  <div class=&quot;segmented&quot; role=&quot;radiogroup&quot;><label class=&quot;segment&quot;><input type=&quot;radio&quot; name=&quot;placement&quot; value=&quot;overlay&quot; /><span>On the image</span></label>
-  <label class=&quot;segment&quot;><input type=&quot;radio&quot; name=&quot;placement&quot; value=&quot;menu&quot; checked /><span>Next to ⋯</span></label></div>
-  <p class=&quot;note&quot;>Always under each pin, beside its ⋯ menu.</p>
-</section></main></body></html>"
-    style="position:absolute;left:480px;top:684px;width:321px;height:106px;border:0;z-index:30;border-radius:10px;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 30px 80px -20px rgba(0,0,0,.7)"></iframe>
-    <div style="position:absolute;left:755px;top:736.8px;z-index:40"><div style="zoom:1"><span style="position:relative;display:block"><i class="cursor" style="left:-6.9px;top:-3.5px;width:30px;height:30px"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 2.8v16.6l4.3-4.1 2.7 6.1 2.9-1.3-2.7-6h6z" fill="#1d1b20" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></i></span></div></div>
+        <h2 class=&quot;label&quot; id=&quot;placement-heading&quot;>Pin buttons</h2>
+        <div class=&quot;choices&quot; role=&quot;radiogroup&quot; aria-labelledby=&quot;placement-heading&quot;>
+          <label class=&quot;choice&quot;>
+            <input type=&quot;radio&quot; name=&quot;placement&quot; value=&quot;overlay&quot; />
+            <span class=&quot;choice-body&quot;>
+              <svg class=&quot;choice-art&quot; viewBox=&quot;0 0 64 44&quot; aria-hidden=&quot;true&quot;>
+                <rect class=&quot;art-media&quot; x=&quot;12&quot; y=&quot;2&quot; width=&quot;40&quot; height=&quot;40&quot; rx=&quot;6&quot; />
+                <rect class=&quot;art-pill&quot; x=&quot;16&quot; y=&quot;30&quot; width=&quot;17&quot; height=&quot;8&quot; rx=&quot;2.5&quot; />
+                <rect class=&quot;art-dot&quot; x=&quot;18.5&quot; y=&quot;32.5&quot; width=&quot;4&quot; height=&quot;3&quot; rx=&quot;1&quot; />
+                <rect class=&quot;art-dot&quot; x=&quot;26.5&quot; y=&quot;32.5&quot; width=&quot;4&quot; height=&quot;3&quot; rx=&quot;1&quot; />
+              </svg>
+              <span class=&quot;choice-text&quot;>On the image</span>
+            </span>
+          </label>
+          <label class=&quot;choice&quot;>
+            <input type=&quot;radio&quot; name=&quot;placement&quot; value=&quot;menu&quot; checked />
+            <span class=&quot;choice-body&quot;>
+              <svg class=&quot;choice-art&quot; viewBox=&quot;0 0 64 44&quot; aria-hidden=&quot;true&quot;>
+                <rect class=&quot;art-media&quot; x=&quot;12&quot; y=&quot;2&quot; width=&quot;40&quot; height=&quot;30&quot; rx=&quot;6&quot; />
+                <rect class=&quot;art-line&quot; x=&quot;13&quot; y=&quot;37&quot; width=&quot;14&quot; height=&quot;3&quot; rx=&quot;1.5&quot; />
+                <rect class=&quot;art-dot&quot; x=&quot;32&quot; y=&quot;36.5&quot; width=&quot;4&quot; height=&quot;4&quot; rx=&quot;1&quot; />
+                <rect class=&quot;art-dot&quot; x=&quot;38.5&quot; y=&quot;36.5&quot; width=&quot;4&quot; height=&quot;4&quot; rx=&quot;1&quot; />
+                <circle class=&quot;art-more&quot; cx=&quot;45.5&quot; cy=&quot;38.5&quot; r=&quot;.9&quot; />
+                <circle class=&quot;art-more&quot; cx=&quot;48.5&quot; cy=&quot;38.5&quot; r=&quot;.9&quot; />
+                <circle class=&quot;art-more&quot; cx=&quot;51.5&quot; cy=&quot;38.5&quot; r=&quot;.9&quot; />
+              </svg>
+              <span class=&quot;choice-text&quot;>Next to <span class=&quot;more&quot;>⋯</span></span>
+            </span>
+          </label>
+        </div>
+        <p class=&quot;note&quot; id=&quot;placement-note&quot;>Always under each pin, beside its ⋯ menu.</p>
+      </section></main></body></html>"
+    style="position:absolute;left:852px;top:372px;width:327px;height:181px;border:0;z-index:30;border-radius:13px;background:#111113;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 30px 80px -20px rgba(0,0,0,.7)"></iframe>
+    <div style="position:absolute;left:1132px;top:439.2px;z-index:40"><div style="zoom:1"><span style="position:relative;display:block"><i class="cursor" style="left:-6.9px;top:-3.5px;width:30px;height:30px"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 2.8v16.6l4.3-4.1 2.7 6.1 2.9-1.3-2.7-6h6z" fill="#1d1b20" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></i></span></div></div>
   </body></html>

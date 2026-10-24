@@ -44,6 +44,7 @@ const src = await readFile(join(root, 'shared', 'ui-assets.ts'), 'utf8');
 const shadowMatch = src.match(/export const SHADOW_CSS = `([\s\S]*?)`;/);
 if (!shadowMatch) throw new Error('Could not read SHADOW_CSS');
 const shadowCss = shadowMatch[1].replaceAll(':host', '.ppp-root');
+const popupHtml = await readFile(join(root, 'entrypoints', 'popup', 'index.html'), 'utf8');
 
 /** A pin picture: file, footer title, and the width/height of the picture. */
 const PINS = {
@@ -322,30 +323,32 @@ ${FONTS}
 <body>${body}</body></html>`;
 }
 
-const POPUP_CARD = { width: 292, height: 96 };
+const POPUP_CARD = { width: 292, height: 162 };
 
 /**
- * The popup's "Pin buttons" card, from the popup's own stylesheet, isolated
- * in a frame so its class names cannot meet the scene's. A srcdoc document
- * resolves relative links against this scene, so the stylesheet is the one
- * the extension ships. The frame's document zooms itself, and the cursor is
- * placed over the "Next to ⋯" segment from the card's own layout.
+ * The popup's "Pin buttons" card, cut from the popup's own page and styled by
+ * its own stylesheet, isolated in a frame so its class names cannot meet the
+ * scene's. A srcdoc document resolves relative links against this scene, so
+ * the markup and the stylesheet are the ones the extension ships. The frame's
+ * document zooms itself, and the cursor rests on the "Next to ⋯" choice.
  */
+const popupSection = popupHtml.match(/<section class="card" aria-labelledby="placement-heading">[\s\S]*?<\/section>/)?.[0];
+if (!popupSection) throw new Error('Could not read the placement card from the popup');
+
 function popupPlacementCard({ left, top, zoom }) {
+  const section = popupSection
+    .replace(' checked />', ' />')
+    .replace('value="menu" />', 'value="menu" checked />')
+    .replace(/(<p class="note" id="placement-note">)[^<]*/, '$1Always under each pin, beside its ⋯ menu.');
   const doc = `<!doctype html><html><head>${FONTS}<link rel="stylesheet" href="../../entrypoints/popup/style.css" />
-<style>html,body{margin:0;background:transparent}body{width:${POPUP_CARD.width}px;zoom:${zoom}}.popup{padding:0}.card{border-color:transparent}</style></head><body><main class="popup">
-<section class="card" aria-labelledby="placement-heading">
-  <h2 class="eyebrow" id="placement-heading">Pin buttons</h2>
-  <div class="segmented" role="radiogroup"><label class="segment"><input type="radio" name="placement" value="overlay" /><span>On the image</span></label>
-  <label class="segment"><input type="radio" name="placement" value="menu" checked /><span>Next to ⋯</span></label></div>
-  <p class="note">Always under each pin, beside its ⋯ menu.</p>
-</section></main></body></html>`;
+<style>html,body{margin:0;background:transparent}body{width:${POPUP_CARD.width}px;zoom:${zoom}}body::before{display:none}.popup{padding:0}.card{border-color:transparent;box-shadow:none}</style></head><body><main class="popup">
+${section}</main></body></html>`;
   const width = Math.round(POPUP_CARD.width * zoom);
   const height = Math.round(POPUP_CARD.height * zoom);
-  const segment = { x: 250 * zoom, y: 48 * zoom };
+  const choice = { x: 250 * zoom, y: 60 * zoom };
   return `<iframe srcdoc="${doc.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}"
-    style="position:absolute;left:${left}px;top:${top}px;width:${width}px;height:${height}px;border:0;z-index:30;border-radius:${Math.round(9 * zoom)}px;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 30px 80px -20px rgba(0,0,0,.7)"></iframe>
-    ${placed({ left: left + segment.x, top: top + segment.y, z: 40 }, `<span style="position:relative;display:block">${cursorAt(0, 0, 30)}</span>`)}`;
+    style="position:absolute;left:${left}px;top:${top}px;width:${width}px;height:${height}px;border:0;z-index:30;border-radius:${Math.round(12 * zoom)}px;background:#111113;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 30px 80px -20px rgba(0,0,0,.7)"></iframe>
+    ${placed({ left: left + choice.x, top: top + choice.y, z: 40 }, `<span style="position:relative;display:block">${cursorAt(0, 0, 30)}</span>`)}`;
 }
 
 function card(label, inner) {
@@ -397,9 +400,9 @@ const scenes = {
   'screenshot-3-placement.html': page('Buttons where you want them', SHOT_W, SHOT_H, `
     ${backdrop(GLOW.centre)}
     ${heading({ title: 'Buttons where you want them.', sub: 'Over the pin you point at, or always beside every pin’s ⋯ menu. One switch in the popup.' })}
-    ${placed({ left: 318, top: 246, zoom: 0.92, width: 300 }, card('On the image', pin('coat', { hovered: true, ratio: 4 / 5, pointing: 'copy' })))}
-    ${placed({ left: 662, top: 246, zoom: 0.92, width: 300 }, card(`Next to ${ICONS.dots}`, pin('vases', { row: true, ratio: 4 / 5 })))}
-    ${popupPlacementCard({ left: 480, top: 684, zoom: 1.1 })}
+    ${placed({ left: 196, top: 246, zoom: 0.92, width: 300 }, card('On the image', pin('coat', { hovered: true, ratio: 4 / 5, pointing: 'copy' })))}
+    ${placed({ left: 512, top: 246, zoom: 0.92, width: 300 }, card(`Next to ${ICONS.dots}`, pin('vases', { row: true, ratio: 4 / 5 })))}
+    ${popupPlacementCard({ left: 852, top: 372, zoom: 1.12 })}
   `),
 
   'screenshot-4-grid-slider.html': page('Resize the grid', SHOT_W, SHOT_H, `

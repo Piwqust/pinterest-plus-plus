@@ -47,6 +47,10 @@ function choosePlacement(placement: ButtonPlacement): void {
 
 function showWidth(width: number): void {
   value.textContent = `${width} px`;
+  const min = Number(range.min);
+  const span = Number(range.max) - min;
+  const fill = span > 0 ? ((width - min) / span) * 100 : 0;
+  range.style.setProperty('--fill', `${Math.min(100, Math.max(0, fill))}%`);
 }
 
 function setNote(message: string, isError = false): void {

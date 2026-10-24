@@ -9,7 +9,7 @@
   <body>
     <main class="popup">
       <header class="head">
-        <img class="mark" src="/icon/48.png" width="30" height="30" alt="" />
+        <img class="mark" src="/icon/48.png" width="34" height="34" alt="" />
         <div class="head-text">
           <h1 class="title">Pinterest++</h1>
           <p class="subtitle" id="version">Version</p>
@@ -18,7 +18,7 @@
 
       <section class="card" aria-labelledby="width-heading">
         <div class="card-head">
-          <h2 class="eyebrow" id="width-heading">Grid tile width</h2>
+          <h2 class="label" id="width-heading">Grid tile width</h2>
           <output class="value" id="value" for="range">236 px</output>
         </div>
         <input
@@ -33,37 +33,74 @@
         />
         <div class="card-foot">
           <p class="note" id="note">Applies to open Pinterest tabs.</p>
-          <button class="reset" id="reset" type="button">Reset</button>
+          <button class="reset" id="reset" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /></svg>
+            Reset
+          </button>
         </div>
       </section>
 
       <section class="card" aria-labelledby="placement-heading">
-        <h2 class="eyebrow" id="placement-heading">Pin buttons</h2>
-        <div class="segmented" role="radiogroup" aria-labelledby="placement-heading">
-          <label class="segment">
+        <h2 class="label" id="placement-heading">Pin buttons</h2>
+        <div class="choices" role="radiogroup" aria-labelledby="placement-heading">
+          <label class="choice">
             <input type="radio" name="placement" value="overlay" checked />
-            <span>On the image</span>
+            <span class="choice-body">
+              <svg class="choice-art" viewBox="0 0 64 44" aria-hidden="true">
+                <rect class="art-media" x="12" y="2" width="40" height="40" rx="6" />
+                <rect class="art-pill" x="16" y="30" width="17" height="8" rx="2.5" />
+                <rect class="art-dot" x="18.5" y="32.5" width="4" height="3" rx="1" />
+                <rect class="art-dot" x="26.5" y="32.5" width="4" height="3" rx="1" />
+              </svg>
+              <span class="choice-text">On the image</span>
+            </span>
           </label>
-          <label class="segment">
+          <label class="choice">
             <input type="radio" name="placement" value="menu" />
-            <span>Next to ⋯</span>
+            <span class="choice-body">
+              <svg class="choice-art" viewBox="0 0 64 44" aria-hidden="true">
+                <rect class="art-media" x="12" y="2" width="40" height="30" rx="6" />
+                <rect class="art-line" x="13" y="37" width="14" height="3" rx="1.5" />
+                <rect class="art-dot" x="32" y="36.5" width="4" height="4" rx="1" />
+                <rect class="art-dot" x="38.5" y="36.5" width="4" height="4" rx="1" />
+                <circle class="art-more" cx="45.5" cy="38.5" r=".9" />
+                <circle class="art-more" cx="48.5" cy="38.5" r=".9" />
+                <circle class="art-more" cx="51.5" cy="38.5" r=".9" />
+              </svg>
+              <span class="choice-text">Next to <span class="more">⋯</span></span>
+            </span>
           </label>
         </div>
         <p class="note" id="placement-note">Over a pin's image while you point at it.</p>
       </section>
 
       <section class="card" aria-labelledby="onpage-heading">
-        <h2 class="eyebrow" id="onpage-heading">On Pinterest</h2>
-        <ul class="list">
-          <li><b>Copy</b> and <b>Download</b> sit where you choose above: over the pin you point at, or beside every pin's ⋯ menu.</li>
-          <li>Feeds, boards, profiles and search all work the same way.</li>
-          <li>The close-up gets the same pair, sized to its action bar.</li>
-          <li>The corner slider reads your real grid width and column count.</li>
+        <h2 class="label" id="onpage-heading">On Pinterest</h2>
+        <ul class="features">
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></svg>
+            <span><b>Copy</b> and <b>Download</b> on every pin</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
+            <span>Feeds, boards, profiles and search</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
+            <span>The close-up gets the pair too</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7" /><path d="M4 10V3" /><path d="M12 21v-9" /><path d="M12 8V3" /><path d="M20 21v-5" /><path d="M20 12V3" /><path d="M1 14h6" /><path d="M9 8h6" /><path d="M17 16h6" /></svg>
+            <span>A corner slider sizes the grid</span>
+          </li>
         </ul>
       </section>
 
       <footer class="foot">
-        <button class="open" id="open" type="button">Open Pinterest</button>
+        <button class="open" id="open" type="button">
+          Open Pinterest
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7" /><path d="M8 7h9v9" /></svg>
+        </button>
         <a class="link" id="privacy" href="https://piwqust.github.io/pinterest-plus-plus/" target="_blank" rel="noreferrer">Privacy</a>
       </footer>
     </main>
