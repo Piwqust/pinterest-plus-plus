@@ -421,7 +421,7 @@ export function mediaFileExtension(raw: string, kind: MediaKind): string {
   return fallbackExtension;
 }
 
-function filenameStem(value: string): string {
+export function filenameStem(value: string): string {
   const normalized = value
     .normalize('NFKC')
     .replace(/[\u0000-\u001F<>:"/\\|?*]/g, ' ')

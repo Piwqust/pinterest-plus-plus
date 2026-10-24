@@ -1,3 +1,5 @@
+import { normalizeCollection } from '../../shared/collection';
+import { COLLECTION_KEY } from '../../shared/collection-store';
 import {
   DEFAULT_TILE_WIDTH,
   MIN_TILE_WIDTH,
@@ -5,8 +7,10 @@ import {
   TILE_STEP,
   clampTileWidth,
   normalizeButtonPlacement,
+  readCollectionPrefs,
   readSettings,
   writeButtonPlacement,
+  writeCollectionPrefs,
   writeTileWidth,
   type ButtonPlacement,
 } from '../../shared/settings';
@@ -27,6 +31,10 @@ const open = document.querySelector<HTMLButtonElement>('#open')!;
 const version = document.querySelector<HTMLElement>('#version')!;
 const placements = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="placement"]'));
 const placementNote = document.querySelector<HTMLElement>('#placement-note')!;
+const collected = document.querySelector<HTMLOutputElement>('#collected')!;
+const skipAds = document.querySelector<HTMLInputElement>('#skip-ads')!;
+const skipRepeats = document.querySelector<HTMLInputElement>('#skip-repeats')!;
+const collectionNote = document.querySelector<HTMLElement>('#collection-note')!;
 
 let writeTimer: number | undefined;
 
@@ -81,7 +89,36 @@ function apply(width: number): void {
   persist(normalized);
 }
 
+function showCollected(value: unknown): void {
+  const count = normalizeCollection(value).pins.length;
+  collected.textContent = `${count} ${count === 1 ? 'pin' : 'pins'}`;
+}
+
+/** The collection lives in local storage, written by the Pinterest tabs; the popup only counts it. */
+async function startCollection(): Promise<void> {
+  const prefs = await readCollectionPrefs();
+  skipAds.checked = prefs.skipAds;
+  skipRepeats.checked = prefs.skipRepeats;
+  const save = (change: Parameters<typeof writeCollectionPrefs>[0]) => {
+    void writeCollectionPrefs(change).catch(() => {
+      collectionNote.textContent = 'Could not save to your Chrome profile.';
+      collectionNote.dataset.error = 'true';
+    });
+  };
+  skipAds.addEventListener('change', () => save({ skipAds: skipAds.checked }));
+  skipRepeats.addEventListener('change', () => save({ skipRepeats: skipRepeats.checked }));
+  try {
+    showCollected((await chrome.storage.local.get(COLLECTION_KEY))[COLLECTION_KEY]);
+  } catch {
+    showCollected(undefined);
+  }
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes[COLLECTION_KEY]) showCollected(changes[COLLECTION_KEY].newValue);
+  });
+}
+
 async function start(): Promise<void> {
+  void startCollection();
   version.textContent = `Version ${chrome.runtime.getManifest().version}`;
   range.min = String(MIN_TILE_WIDTH);
   range.step = String(TILE_STEP);

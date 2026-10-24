@@ -48,9 +48,10 @@
             <span class="choice-body">
               <svg class="choice-art" viewBox="0 0 64 44" aria-hidden="true">
                 <rect class="art-media" x="12" y="2" width="40" height="40" rx="6" />
-                <rect class="art-pill" x="16" y="30" width="17" height="8" rx="2.5" />
+                <rect class="art-pill" x="16" y="30" width="24" height="8" rx="2.5" />
                 <rect class="art-dot" x="18.5" y="32.5" width="4" height="3" rx="1" />
-                <rect class="art-dot" x="26.5" y="32.5" width="4" height="3" rx="1" />
+                <rect class="art-dot" x="26" y="32.5" width="4" height="3" rx="1" />
+                <rect class="art-dot" x="33.5" y="32.5" width="4" height="3" rx="1" />
               </svg>
               <span class="choice-text">On the image</span>
             </span>
@@ -60,7 +61,8 @@
             <span class="choice-body">
               <svg class="choice-art" viewBox="0 0 64 44" aria-hidden="true">
                 <rect class="art-media" x="12" y="2" width="40" height="30" rx="6" />
-                <rect class="art-line" x="13" y="37" width="14" height="3" rx="1.5" />
+                <rect class="art-line" x="13" y="37" width="10" height="3" rx="1.5" />
+                <rect class="art-dot" x="25.5" y="36.5" width="4" height="4" rx="1" />
                 <rect class="art-dot" x="32" y="36.5" width="4" height="4" rx="1" />
                 <rect class="art-dot" x="38.5" y="36.5" width="4" height="4" rx="1" />
                 <circle class="art-more" cx="45.5" cy="38.5" r=".9" />
@@ -74,26 +76,22 @@
         <p class="note" id="placement-note">Over a pin's image while you point at it.</p>
       </section>
 
-      <section class="card" aria-labelledby="onpage-heading">
-        <h2 class="label" id="onpage-heading">On Pinterest</h2>
-        <ul class="features">
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></svg>
-            <span><b>Copy</b> and <b>Download</b> on every pin</span>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
-            <span>Feeds, boards, profiles and search</span>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
-            <span>The close-up gets the pair too</span>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7" /><path d="M4 10V3" /><path d="M12 21v-9" /><path d="M12 8V3" /><path d="M20 21v-5" /><path d="M20 12V3" /><path d="M1 14h6" /><path d="M9 8h6" /><path d="M17 16h6" /></svg>
-            <span>A corner slider sizes the grid</span>
-          </li>
-        </ul>
+      <section class="card" aria-labelledby="collection-heading">
+        <div class="card-head">
+          <h2 class="label" id="collection-heading">Collection</h2>
+          <output class="value" id="collected">0 pins</output>
+        </div>
+        <div class="switches">
+          <label class="switch">
+            <input type="checkbox" role="switch" id="skip-ads" checked />
+            <span>Skip ads when scanning</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" role="switch" id="skip-repeats" />
+            <span>Skip pins collected before</span>
+          </label>
+        </div>
+        <p class="note" id="collection-note">Scan, filter and save pins from the <b>Collection</b> button in Pinterest's corner.</p>
       </section>
 
       <footer class="foot">

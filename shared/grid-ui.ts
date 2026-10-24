@@ -43,6 +43,7 @@ export class GridUi {
   private range: HTMLInputElement;
   private gridValue: HTMLElement;
   private gridPanel: HTMLElement;
+  private gridShell: HTMLElement;
   private gridStatus: HTMLElement;
   private stepSmaller: HTMLButtonElement;
   private stepLarger: HTMLButtonElement;
@@ -87,6 +88,7 @@ export class GridUi {
         <div class="ppp-grid-status" role="status" aria-live="polite"></div>
       </section>
     `;
+    this.gridShell = gridShell;
     this.gridPanel = gridShell.querySelector<HTMLElement>('.ppp-grid-panel')!;
     this.range = gridShell.querySelector<HTMLInputElement>('.ppp-range')!;
     this.gridValue = gridShell.querySelector<HTMLElement>('.ppp-grid-value')!;
@@ -127,6 +129,11 @@ export class GridUi {
    */
   setTileWidth(value: number): void {
     this.previewTileWidth(this.widthController.prefer(value));
+  }
+
+  /** Puts a control of the extension's own beside the grid panel, in the same corner. */
+  mountCornerControl(control: HTMLElement): void {
+    this.gridShell.prepend(control);
   }
 
   setGridStatus(detail: GridStatusDetail): void {
@@ -507,7 +514,7 @@ export class GridUi {
     this.closePicker();
   };
 
-  private showToast(message: string, error = false): void {
+  showToast(message: string, error = false): void {
     if (this.toastTimer !== undefined) window.clearTimeout(this.toastTimer);
     this.toast.textContent = message;
     this.toast.dataset.error = String(error);

@@ -6,6 +6,15 @@ export const ICONS = {
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>',
   smaller: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>',
   larger: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>',
+  collect: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z"/><path d="M12 7.5v5M9.5 10h5"/></svg>',
+  collected: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ppp-fill" d="M6 4h12v16l-6-4-6 4z"/><path class="ppp-mark" d="m9.2 10 2 2 3.6-3.6"/></svg>',
+  stack: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="9" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="15" width="7" height="5" rx="1.5"/></svg>',
+  scan: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M12 8v8m0 0 3-3m-3 3-3-3"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h3.5l2 2H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>',
+  external: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M17 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h4"/></svg>',
+  filter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
 };
 
 export const SHADOW_CSS = `
@@ -80,8 +89,15 @@ export const SHADOW_CSS = `
   .ppp-pin-actions[data-scope="row"] .ppp-action svg {
     width: calc(var(--ppp-row-size, 24px) * .7); height: calc(var(--ppp-row-size, 24px) * .7);
   }
+  /* A pin already in the collection wears a filled bookmark. */
+  .ppp-action .ppp-fill { fill: currentColor; }
+  .ppp-action .ppp-mark { stroke: var(--ppp-surface); stroke-width: 2.2; }
+  .ppp-action[data-collected="true"] { color: var(--ppp-ink); }
+  /* The corner holds the collection's launcher and, beside it at the same
+     height, the grid panel. They rest dimmed together and wake together. */
   .ppp-grid-shell {
-    position: fixed; right: 14px; bottom: 14px; pointer-events: auto;
+    position: fixed; right: 14px; bottom: 14px; pointer-events: none;
+    display: flex; align-items: stretch; gap: 8px;
     opacity: .7; transition: opacity 140ms ease-out;
   }
   .ppp-grid-shell:hover, .ppp-grid-shell:focus-within,

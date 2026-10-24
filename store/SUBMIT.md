@@ -2,7 +2,7 @@
 
 Всё, что можно подготовить без аккаунта Google, уже лежит в репозитории. Ниже — шаги, которые может сделать только владелец аккаунта.
 
-ZIP: `.output/pinterest-plus-plus-1.0.11-chrome.zip` после `npm run zip`.  
+ZIP: `.output/pinterest-plus-plus-1.1.0-chrome.zip` после `npm run zip`.  
 Тексты: `store/LISTING.md`.  
 Картинки: `store/assets/`.  
 Политика: https://piwqust.github.io/pinterest-plus-plus/ (`store/privacy.html`, копия в `docs/index.html`).
@@ -16,21 +16,24 @@ ZIP: `.output/pinterest-plus-plus-1.0.11-chrome.zip` после `npm run zip`.
 - **1.0.9:** скачивание видео идёт по данным пина из Pinterest и при необходимости собирает файл из HLS-потока локально; панель над пином больше не мигает; в попапе появилась настройка «Pin buttons» (на картинке или рядом с ⋯).
 - **1.0.10:** новый знак (графитовая клавиша с белым «++») и вся графика листинга; политика и обоснования в листинге называют обе настройки, которые хранит расширение: ширину плитки и место кнопок.
 - **1.0.11:** попап в стиле нового знака: тёмный графит, белый свет, шрифт Inter внутри пакета; скриншот 3 показывает новую карточку «Pin buttons».
+- **1.1.0:** коллекция. Третья кнопка на пине (закладка), панель «Collection» с автоскроллом ленты на 50/100/250 пинов, папками, фильтрами по типу, форме и цвету и сохранением одним ZIP (с `sources.csv`) или отдельными файлами. Коллекция хранится в `chrome.storage.local` на устройстве. В попапе вместо «On Pinterest» — карточка «Collection».
 
-Разрешения не менялись; в манифесте изменились только версия и иконки. В пакете добавился файл шрифта `fonts/inter-latin.woff2`, сетевых запросов он не добавляет.
+Разрешения не менялись. В манифесте изменились версия и `description` (теперь упоминает коллекцию и ZIP), в 1.0.11 добавился шрифт `fonts/inter-latin.woff2`, сетевых запросов он не добавляет. Обоснования `downloads`, `offscreen`, `storage` и обоих host permissions переписаны под коллекцию, их надо вставить заново.
 
 1. `npm test`, `npm run typecheck`, `npm run zip`.
-2. **Политика конфиденциальности — до Submit.** С 1.0.8 изменились два раздела: «Website content, on your action» (расширение спрашивает у `pinterest.com` список медиа пина и может собрать видео из потока внутри Chrome) и «Settings stored in Chrome» (две настройки вместо одной). GitHub Pages публикует сайт из `docs/` ветки `master`, поэтому новый текст появится только после того, как эта ветка попадёт в `master` на GitHub. Проверьте https://piwqust.github.io/pinterest-plus-plus/ в инкогнито: должны быть «Effective date: 23 October 2026», «For Download it first asks pinterest.com…» и «The extension stores two settings…».
-3. Dashboard → ваш item → **Package** → **Upload new package** → `.output/pinterest-plus-plus-1.0.11-chrome.zip`. Версия в манифесте должна быть выше опубликованной.
-4. **Store listing**: замените подробное описание английским блоком из `LISTING.md` (добавлена фраза про размещение кнопок рядом с ⋯). Графика обновлена целиком, поэтому замените всё из `store/assets/`:
-   - **иконку** `icon-128.png` (новый знак: графитовая клавиша с белым «++»; она же в пакете расширения);
-   - **все пять скриншотов**: удалите старые и загрузите по порядку `screenshot-1-copy-download.png`, `screenshot-2-videos.png`, `screenshot-3-placement.png`, `screenshot-4-grid-slider.png`, `screenshot-5-copy.png`;
+2. **Политика конфиденциальности — до Submit.** В 1.1.0 добавлен раздел «Your collection, on your action», а «Settings stored in Chrome» стал «What is stored in Chrome»: настройки в Sync и коллекция в `chrome.storage.local`. GitHub Pages публикует сайт из `docs/` ветки `master`, поэтому новый текст появится только после того, как эта ветка попадёт в `master` на GitHub. Проверьте https://piwqust.github.io/pinterest-plus-plus/ в инкогнито: должны быть «Effective date: 24 October 2026», «Your collection, on your action» и «Your collection, using chrome.storage.local…».
+3. Dashboard → ваш item → **Package** → **Upload new package** → `.output/pinterest-plus-plus-1.1.0-chrome.zip`. Версия в манифесте должна быть выше опубликованной.
+4. **Store listing**: замените подробное описание английским блоком из `LISTING.md` (в 1.1.0 добавлен абзац про коллекцию; summary берётся из манифеста). В 1.1.0 перерисованы все скриншоты и обе промо-плитки, иконка прежняя. Замените из `store/assets/`:
+   - **иконку** `icon-128.png`, только если в дашборде ещё старая (до 1.0.10);
+   - **все пять скриншотов**: удалите старые и загрузите по порядку `screenshot-1-copy-download.png`, `screenshot-2-collection.png`, `screenshot-3-scan-filter.png`, `screenshot-4-videos.png`, `screenshot-5-grid-slider.png`. Кадры с выбором места кнопок и с копированием в PNG ушли, их место заняли коллекция и скан с фильтром;
    - **обе промо-плитки**: `promo-small-440x280.png` и `promo-marquee-1400x560.png`.
 5. **Privacy practices**: разрешения те же, но тексты из `LISTING.md` надо вставить заново:
-   - **single purpose** (упоминает настройку места кнопок);
-   - **`storage`** (две настройки: `tileWidth` и `buttonPlacement`);
-   - **`offscreen`** (сборка видео из потока);
-   - **host permission `pinterest.com`** (запрос списка медиа пина);
+   - **single purpose** (упоминает коллекцию);
+   - **`storage`** (настройки в Sync и коллекция в `chrome.storage.local`);
+   - **`downloads`** (пакетное сохранение файлами или ZIP);
+   - **`offscreen`** (сборка видео из потока и упаковка ZIP);
+   - **host permission `pinterest.com`** (кнопка сбора и скан страницы);
+   - **host permission `pinimg.com`** (превью для фильтра по цвету);
    - **test instructions**, если заполняли.
    
    Data use не меняется: только **Website content**.
@@ -65,7 +68,7 @@ npm run typecheck
 npm run zip
 ```
 
-Загружайте `.output/pinterest-plus-plus-1.0.11-chrome.zip`. Это production MV3-пакет, не исходники.
+Загружайте `.output/pinterest-plus-plus-1.1.0-chrome.zip`. Это production MV3-пакет, не исходники.
 
 ## 4. New item
 

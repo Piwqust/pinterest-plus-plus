@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMediaActionHost, setActionsVisible } from '../shared/media-action-host';
+import { createMediaActionHost, setActionsVisible, setCollected } from '../shared/media-action-host';
 
 function actionsOf(host: HTMLElement): HTMLElement {
   return host.shadowRoot!.querySelector<HTMLElement>('.ppp-pin-actions')!;
@@ -31,7 +31,20 @@ describe('createMediaActionHost', () => {
 
     for (const pressed of actionsOf(host).querySelectorAll<HTMLButtonElement>('.ppp-action')) pressed.click();
 
-    expect(ran).toEqual(['copy', 'download']);
+    expect(ran).toEqual(['copy', 'download', 'collect']);
+  });
+
+  it('shows whether the pin it serves is already collected', () => {
+    const host = createMediaActionHost('grid', async () => {});
+    const collect = actionsOf(host).querySelector<HTMLButtonElement>('[data-action="collect"]')!;
+
+    setCollected(host, true);
+    expect(collect.getAttribute('aria-pressed')).toBe('true');
+    expect(collect.getAttribute('aria-label')).toBe('Remove from collection');
+
+    setCollected(host, false);
+    expect(collect.getAttribute('aria-pressed')).toBe('false');
+    expect(collect.getAttribute('aria-label')).toBe('Add to collection');
   });
 
   it('keeps the click off the link the pin is wrapped in', () => {

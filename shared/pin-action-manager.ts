@@ -1,4 +1,4 @@
-import { createMediaActionHost, setActionsVisible, type MediaAction } from './media-action-host';
+import { createMediaActionHost, setActionsVisible, type HostAction } from './media-action-host';
 import { ANY_PIN_SELECTOR } from './pin-grid-roots';
 
 const PIN_MEDIA_SELECTOR = 'img, video';
@@ -11,7 +11,7 @@ const FOREIGN_CONTROL_SELECTOR = 'a[href], button, [role="button"]';
 /** Of the media's area, what a control must stay under to count as one. */
 const COVER_SHARE = 0.5;
 /** Fallbacks for the first placement, before the panel has been measured. */
-const PANEL_WIDTH = 68;
+const PANEL_WIDTH = 98;
 const PANEL_HEIGHT = 32;
 
 /**
@@ -33,7 +33,9 @@ function largestMedia(pin: HTMLElement): { media: HTMLElement; frame: DOMRect } 
   return best;
 }
 
-type PinAction = (action: MediaAction, pin: HTMLElement, target: HTMLButtonElement) => Promise<void>;
+type PinAction = (action: HostAction, pin: HTMLElement, target: HTMLButtonElement) => Promise<void>;
+/** Told whenever the panel moves to another pin, or leaves the feed. */
+type ActiveChange = (pin: HTMLElement | null, host: HTMLElement) => void;
 /** Whether a pin's buttons live somewhere else, so the panel leaves it alone. */
 type ServedElsewhere = (pin: HTMLElement) => boolean;
 
@@ -90,6 +92,7 @@ export class PinActionManager {
     layer: ShadowRoot,
     private onAction: PinAction,
     private servedElsewhere: ServedElsewhere = () => false,
+    private onActiveChange: ActiveChange = () => {},
   ) {
     this.root = layer.host;
     this.host = createMediaActionHost('grid', (action, target) => this.run(action, target));
@@ -102,6 +105,11 @@ export class PinActionManager {
     });
     // First in the layer, so the picker and the toast still open above it.
     layer.prepend(this.host);
+  }
+
+  /** Re-announces the active pin, after something about it (its collected state) changed. */
+  refreshActive(): void {
+    this.onActiveChange(this.active, this.host);
   }
 
   /** Re-reads which pins the panel serves, after `servedElsewhere` changed its mind. */
@@ -129,7 +137,7 @@ export class PinActionManager {
     this.host.remove();
   }
 
-  private run(action: MediaAction, target: HTMLButtonElement): Promise<void> {
+  private run(action: HostAction, target: HTMLButtonElement): Promise<void> {
     const pin = this.active;
     if (!pin?.isConnected) return Promise.resolve();
     return this.onAction(action, pin, target);
@@ -177,6 +185,8 @@ export class PinActionManager {
       this.lift = 0;
       // A panel taken off one pin is not under the pointer on the next.
       this.pointerOnPanel = false;
+      this.active = pin;
+      this.onActiveChange(pin, this.host);
     }
     this.active = pin;
     this.refresh();

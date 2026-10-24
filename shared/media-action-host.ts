@@ -1,6 +1,8 @@
 import { ICONS, SHADOW_CSS } from './ui-assets';
 
 export type MediaAction = 'copy' | 'download';
+/** Everything a host's buttons can ask for: the two media actions, and adding the pin to the collection. */
+export type HostAction = MediaAction | 'collect';
 
 export type ActionScope = 'grid' | 'closeup' | 'row';
 /** The close-up's bar is built from larger controls than a grid tile's. */
@@ -30,7 +32,7 @@ export function button(className: string, label: string, icon: string): HTMLButt
  */
 export function createMediaActionHost(
   scope: ActionScope,
-  onAction: (action: MediaAction, target: HTMLButtonElement) => Promise<void>,
+  onAction: (action: HostAction, target: HTMLButtonElement) => Promise<void>,
   rowSize = DEFAULT_ROW_SIZE,
 ): HTMLElement {
   const host = document.createElement('span');
@@ -51,7 +53,9 @@ export function createMediaActionHost(
   actions.dataset.scope = scope;
   const copyButton = button('ppp-action', 'Copy media', ICONS.copy);
   const downloadButton = button('ppp-action', 'Download media', ICONS.download);
-  actions.append(copyButton, downloadButton);
+  const collectButton = button('ppp-action', 'Add to collection', ICONS.collect);
+  collectButton.dataset.action = 'collect';
+  actions.append(copyButton, downloadButton, collectButton);
   shadow.append(style, actions);
 
   host.addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -71,7 +75,23 @@ export function createMediaActionHost(
   });
   copyButton.addEventListener('click', () => void onAction('copy', copyButton));
   downloadButton.addEventListener('click', () => void onAction('download', downloadButton));
+  collectButton.addEventListener('click', () => void onAction('collect', collectButton));
   return host;
+}
+
+/**
+ * Shows whether the pin a host serves is in the collection. The grid's single
+ * panel moves between pins, so its owner calls this each time it does.
+ */
+export function setCollected(host: HTMLElement, collected: boolean): void {
+  const target = host.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="collect"]');
+  if (!target || target.dataset.collected === String(collected)) return;
+  const label = collected ? 'Remove from collection' : 'Add to collection';
+  target.dataset.collected = String(collected);
+  target.setAttribute('aria-label', label);
+  target.setAttribute('aria-pressed', String(collected));
+  target.title = label;
+  target.innerHTML = `${collected ? ICONS.collected : ICONS.collect}<span>${label}</span>`;
 }
 
 /**

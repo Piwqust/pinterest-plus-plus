@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { MediaAction } from '../shared/media-action-host';
+import type { HostAction } from '../shared/media-action-host';
 import { PinActionManager } from '../shared/pin-action-manager';
 
 interface Rect {
@@ -56,7 +56,7 @@ describe('PinActionManager', () => {
   let manager: PinActionManager | null = null;
   let layerHost: HTMLElement;
   let layer: ShadowRoot;
-  let ran: Array<{ action: MediaAction; pin: string }> = [];
+  let ran: Array<{ action: HostAction; pin: string }> = [];
 
   const build = (): PinActionManager => new PinActionManager(layer, async (action, pin) => {
     ran.push({ action, pin: pin.id });

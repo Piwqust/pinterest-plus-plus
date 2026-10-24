@@ -1,9 +1,16 @@
 import { SequentialTaskQueue, firstSuccessfulCandidate } from '../../shared/candidate-processing';
 import { withTimeout } from '../../shared/async';
 import { assembleStream } from '../../shared/hls-assembly';
+import { creditsCsv, type CreditRow } from '../../shared/collection';
+import { isDownloadableVideoUrl, isMediaResponse, mediaFileExtension } from '../../shared/media';
+import { zipParts, type ZipEntry } from '../../shared/zip';
 import type {
   ActionResponse,
+  ArchiveBuiltResponse,
+  ArchiveItem,
+  ArchiveProgressMessage,
   AssembledVideoResponse,
+  OffscreenArchiveMessage,
   OffscreenAssembleMessage,
   OffscreenCopyMessage,
   OffscreenMessage,
@@ -25,6 +32,11 @@ const STREAM_FETCH_TIMEOUT_MS = 60_000;
  */
 const ASSEMBLED_LIFETIME_MS = 10 * 60_000;
 const assembledUrls = new Map<string, ReturnType<typeof setTimeout>>();
+/** One original; a full-size PNG can run to tens of megabytes. */
+const ARCHIVE_FETCH_TIMEOUT_MS = 45_000;
+/** Enough to keep the network busy without a burst Pinimg would throttle. */
+const ARCHIVE_CONCURRENCY = 4;
+const PROGRESS_INTERVAL_MS = 200;
 
 async function fetchSource(candidate: string): Promise<Blob> {
   const controller = new AbortController();
@@ -237,8 +249,134 @@ async function assemble(message: OffscreenAssembleMessage): Promise<AssembledVid
   }
 }
 
+async function fetchMediaBytes(url: string, kind: ArchiveItem['kind']): Promise<Uint8Array | null> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), ARCHIVE_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { credentials: 'omit', cache: 'force-cache', signal: controller.signal });
+    // An unpublished route answers with an XML error body, which must not be packed as a picture.
+    if (!isMediaResponse(response.status, response.headers.get('content-type'), kind)) {
+      await response.body?.cancel();
+      return null;
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  } catch {
+    return null;
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+/** The first source of a pin that answers with a real file, and the extension it earns. */
+async function archiveFile(item: ArchiveItem): Promise<{ bytes: Uint8Array; extension: string } | null> {
+  const candidates = item.kind === 'video' ? item.candidates.filter(isDownloadableVideoUrl) : item.candidates;
+  for (const candidate of candidates) {
+    const bytes = await fetchMediaBytes(candidate, item.kind);
+    if (bytes && bytes.length > 0) return { bytes, extension: mediaFileExtension(candidate, item.kind) };
+  }
+  for (const stream of item.streams) {
+    try {
+      return { bytes: await assembleStream(stream, loadStreamFile), extension: 'mp4' };
+    } catch {
+      // Another rendition may still assemble.
+    }
+  }
+  return null;
+}
+
+function uniquePath(stem: string, extension: string, used: Set<string>): string {
+  let path = `${stem}.${extension}`;
+  for (let index = 2; used.has(path.toLowerCase()); index += 1) path = `${stem}-${index}.${extension}`;
+  used.add(path.toLowerCase());
+  return path;
+}
+
+/**
+ * Fetches every pin of the batch and packs them into one ZIP. A pin whose
+ * sources all fail is left out and counted, rather than failing the batch.
+ */
+async function buildArchive(message: OffscreenArchiveMessage): Promise<ArchiveBuiltResponse> {
+  const { items } = message;
+  const files: Array<{ bytes: Uint8Array; extension: string } | null> = new Array(items.length).fill(null);
+  let next = 0;
+  let done = 0;
+  let lastReport = 0;
+  const report = (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastReport < PROGRESS_INTERVAL_MS) return;
+    lastReport = now;
+    const progress: ArchiveProgressMessage = {
+      type: 'ARCHIVE_PROGRESS',
+      target: 'background',
+      jobId: message.jobId,
+      done,
+      total: items.length,
+    };
+    chrome.runtime.sendMessage(progress).catch(() => undefined);
+  };
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      files[index] = await archiveFile(items[index]!);
+      done += 1;
+      report();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(ARCHIVE_CONCURRENCY, items.length) }, worker));
+  report(true);
+
+  const used = new Set<string>();
+  const entries: ZipEntry[] = [];
+  const credits: CreditRow[] = [];
+  const modified = new Date();
+  items.forEach((item, index) => {
+    const file = files[index];
+    if (!file) return;
+    const path = uniquePath(item.stem, file.extension, used);
+    entries.push({ name: path, data: file.bytes, modified });
+    credits.push({ file: path, title: item.title, pinUrl: item.pinUrl });
+  });
+  const failed = items.length - entries.length;
+  if (entries.length === 0) {
+    return { ok: false, message: 'Pinterest did not serve any of these files', included: 0, failed };
+  }
+  if (message.includeCredits) {
+    entries.push({ name: 'sources.csv', data: new TextEncoder().encode(creditsCsv(credits)), modified });
+  }
+
+  try {
+    const blob = new Blob(zipParts(entries) as Uint8Array<ArrayBuffer>[], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    assembledUrls.set(url, globalThis.setTimeout(() => release(url), ASSEMBLED_LIFETIME_MS));
+    const included = credits.length;
+    return {
+      ok: true,
+      message: failed > 0
+        ? `Saved ${included} of ${items.length}. Pinterest did not serve ${failed}.`
+        : `Saved ${included} ${included === 1 ? 'file' : 'files'} as a ZIP`,
+      url,
+      included,
+      failed,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Could not pack the archive',
+      included: 0,
+      failed: items.length,
+    };
+  }
+}
+
 chrome.runtime.onMessage.addListener((message: OffscreenMessage, _sender, sendResponse) => {
   if (message?.target !== 'offscreen') return false;
+  if (message.type === 'OFFSCREEN_BUILD_ARCHIVE') {
+    buildArchive(message).then(sendResponse, () => {
+      sendResponse({ ok: false, message: 'Could not pack the archive', included: 0, failed: message.items.length } satisfies ArchiveBuiltResponse);
+    });
+    return true;
+  }
   if (message.type === 'OFFSCREEN_RELEASE') {
     release(message.url);
     return false;

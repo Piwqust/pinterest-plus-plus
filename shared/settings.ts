@@ -112,3 +112,53 @@ export async function writeTileWidth(tileWidth: number): Promise<number> {
   await browser.storage.sync.set({ tileWidth: normalized });
   return normalized;
 }
+
+export type ExportFormat = 'zip' | 'files';
+
+/** How the collection gathers and saves pins. Synced, like the rest of the settings. */
+export interface CollectionPrefs {
+  /** Leave promoted pins out of a page scan. */
+  skipAds: boolean;
+  /** Leave out of a page scan any pin collected before, even one since removed. */
+  skipRepeats: boolean;
+  exportFormat: ExportFormat;
+  /** Put a `sources.csv` naming every pin beside the files in an archive. */
+  includeCredits: boolean;
+}
+
+export const DEFAULT_COLLECTION_PREFS: CollectionPrefs = {
+  skipAds: true,
+  skipRepeats: false,
+  exportFormat: 'zip',
+  includeCredits: true,
+};
+
+const COLLECTION_PREF_KEYS = ['skipAds', 'skipRepeats', 'exportFormat', 'includeCredits'] as const;
+
+export function normalizeCollectionPrefs(value: Record<string, unknown>): CollectionPrefs {
+  const flag = (key: 'skipAds' | 'skipRepeats' | 'includeCredits') =>
+    typeof value[key] === 'boolean' ? value[key] as boolean : DEFAULT_COLLECTION_PREFS[key];
+  return {
+    skipAds: flag('skipAds'),
+    skipRepeats: flag('skipRepeats'),
+    exportFormat: value.exportFormat === 'files' ? 'files' : 'zip',
+    includeCredits: flag('includeCredits'),
+  };
+}
+
+/** Never rejects, for the same reason as `readSettings`. */
+export async function readCollectionPrefs(): Promise<CollectionPrefs> {
+  try {
+    return normalizeCollectionPrefs(await browser.storage.sync.get([...COLLECTION_PREF_KEYS]));
+  } catch {
+    return { ...DEFAULT_COLLECTION_PREFS };
+  }
+}
+
+export async function writeCollectionPrefs(prefs: Partial<CollectionPrefs>): Promise<void> {
+  await browser.storage.sync.set(prefs);
+}
+
+export function isCollectionPrefChange(changes: Record<string, unknown>): boolean {
+  return COLLECTION_PREF_KEYS.some((key) => key in changes);
+}

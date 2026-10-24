@@ -14,8 +14,9 @@ import sharp from 'sharp';
  * product itself, large, in a framed window cropped by the bottom edge. One
  * feature per frame, nothing else competing for the eye.
  *
- * The controls are not redrawn: they are the extension's real stylesheet
- * (`SHADOW_CSS`) and, for the setting, its real popup stylesheet. The pins are
+ * The controls are not redrawn: they wear the extension's real stylesheets
+ * (`SHADOW_CSS` for the pin buttons and the corner, `COLLECTION_CSS` for the
+ * collection panel), and its icons and colour swatches are read from source. The pins are
  * pictures generated for this listing (`store/scenes/media`), never other
  * people's pins, and no Pinterest logo or brand red appears.
  */
@@ -44,7 +45,23 @@ const src = await readFile(join(root, 'shared', 'ui-assets.ts'), 'utf8');
 const shadowMatch = src.match(/export const SHADOW_CSS = `([\s\S]*?)`;/);
 if (!shadowMatch) throw new Error('Could not read SHADOW_CSS');
 const shadowCss = shadowMatch[1].replaceAll(':host', '.ppp-root');
-const popupHtml = await readFile(join(root, 'entrypoints', 'popup', 'index.html'), 'utf8');
+const collectionSrc = await readFile(join(root, 'shared', 'collection-css.ts'), 'utf8');
+const collectionMatch = collectionSrc.match(/export const COLLECTION_CSS = `([\s\S]*?)`;/);
+if (!collectionMatch) throw new Error('Could not read COLLECTION_CSS');
+const collectionCss = collectionMatch[1];
+/** The extension's own icons, read from its source rather than redrawn. */
+const UI_ICONS = Object.fromEntries([...src.matchAll(/^\s+(\w+): '(<svg[^']*)',?$/gm)].map(([, name, svg]) => [name, svg]));
+for (const name of ['collect', 'collected', 'stack', 'scan', 'folder', 'plus', 'check', 'external']) {
+  if (!UI_ICONS[name]) throw new Error(`Could not read the ${name} icon`);
+}
+const modelSrc = await readFile(join(root, 'shared', 'collection.ts'), 'utf8');
+const swatchBlock = modelSrc.match(/export const HUE_SWATCH[^{]*\{([\s\S]*?)\};/)?.[1];
+if (!swatchBlock) throw new Error('Could not read HUE_SWATCH');
+const HUE_SWATCH = Object.fromEntries([...swatchBlock.matchAll(/(\w+): '([^']+)'/g)].map(([, hue, paint]) => [hue, paint]));
+const panelSrc = await readFile(join(root, 'shared', 'collection-panel.ts'), 'utf8');
+const shapeBlock = panelSrc.match(/const SHAPE_ICON[^{]*\{([\s\S]*?)\};/)?.[1];
+if (!shapeBlock) throw new Error('Could not read SHAPE_ICON');
+const SHAPE_ICON = Object.fromEntries([...shapeBlock.matchAll(/(\w+): '(<svg[^']*)'/g)].map(([, shape, svg]) => [shape, svg]));
 
 /** A pin picture: file, footer title, and the width/height of the picture. */
 const PINS = {
@@ -161,13 +178,26 @@ const sceneCss = `
   .ppp-root .ppp-toast { position: static; transform: none; opacity: 1; }
   .ppp-root .ppp-media-picker { position: static; box-shadow: 0 0 0 1px rgba(0, 0, 0, .04), 0 40px 80px -24px rgba(0, 0, 0, .55); }
   .ppp-root .ppp-grid-shell { position: static; opacity: 1; }
-  .ppp-root .ppp-grid-panel { box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .45); }
+  .ppp-root .ppp-grid-panel, .ppp-root .ppp-c-launch { box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .45); }
   .cursor { position: absolute; z-index: 40; display: block; pointer-events: none; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .35)); }
   .cursor svg { display: block; width: 100% !important; height: 100% !important; }
 
   .label { margin: 0 0 12px; color: var(--grey); font-size: 14px; font-weight: 500; text-align: center; }
   .label svg { width: 18px; height: 18px; margin-left: 3px; vertical-align: -4px; fill: currentColor; }
   .card-frame { padding: 12px 12px 10px; border-radius: 20px; background: #fff; box-shadow: 0 0 0 1px var(--line), 0 40px 100px -30px rgba(0, 0, 0, .7); }
+
+  /* A heading set beside the product instead of above it. */
+  .head.side { right: auto; align-items: flex-start; text-align: left; gap: 18px; }
+  .head.side h1 { font-size: 52px; }
+  .head.side .sub { max-width: none; text-wrap: pretty; }
+  .points { display: grid; gap: 12px; margin: 10px 0 0; padding: 0; list-style: none; color: #c9c9d1; font-size: 16px; font-weight: 500; letter-spacing: -.01em; }
+  .points li { display: flex; align-items: center; gap: 11px; }
+  .points svg { flex: none; width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+  /* The panel sits in the page's own corner, inside the browser window. */
+  .ppp-c-panel.scene-panel { position: absolute; top: 54px; right: 12px; bottom: auto; animation: none; z-index: 20; }
+  .scene-panel .ppp-c-scroll { overflow: hidden; }
+  .scene-panel .ppp-c-select { margin-left: auto; }
+  .window .ppp-c-panel { color: #f4f4f6; }
 `;
 
 const CURSOR = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 2.8v16.6l4.3-4.1 2.7 6.1 2.9-1.3-2.7-6h6z" fill="#1d1b20" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
@@ -207,8 +237,8 @@ function backdrop(glowList) {
 
 const ACTION_SIZE = { grid: 28, closeup: 40 };
 
-/** The extension's Copy/Download pair; `pointing` puts the cursor on one of them. */
-function actionsHtml(scope, { rowSize = 24, pointing = null, cursorSize = 24 } = {}) {
+/** The extension's Copy, Download and collect buttons; `pointing` puts the cursor on one of them. */
+function actionsHtml(scope, { rowSize = 24, pointing = null, cursorSize = 24, collected = false } = {}) {
   const style = scope === 'row' ? ` style="--ppp-row-size:${rowSize}px"` : '';
   const size = ACTION_SIZE[scope] ?? rowSize;
   // Resting just inside the lower right of the button, so its icon stays in view.
@@ -216,26 +246,27 @@ function actionsHtml(scope, { rowSize = 24, pointing = null, cursorSize = 24 } =
   return `<span class="ppp-root"${style}><span class="ppp-pin-actions" data-scope="${scope}">
     <button class="ppp-action" type="button" aria-label="Copy media">${ICONS.copy}<span>Copy media</span>${pointer('copy')}</button>
     <button class="ppp-action" type="button" aria-label="Download media">${ICONS.download}<span>Download media</span>${pointer('download')}</button>
+    <button class="ppp-action" type="button" data-action="collect" data-collected="${collected}" aria-label="Add to collection">${collected ? UI_ICONS.collected : UI_ICONS.collect}<span>Add to collection</span>${pointer('collect')}</button>
   </span></span>`;
 }
 
 /** Pinterest's own hover state, with the extension's panel in the corner it keeps free. */
-function hoverLayer({ visit = true, pointing = null } = {}) {
+function hoverLayer({ visit = true, pointing = null, collected = false, board = true } = {}) {
   return `<div class="hover">
-    <span class="board">Inspiration ${ICONS.chevron}</span>
+    ${board ? `<span class="board">Inspiration ${ICONS.chevron}</span>` : ''}
     <span class="save">Save</span>
     ${visit ? `<span class="visit">${ICONS.arrow}Visit site</span>` : ''}
     <span class="share">${ICONS.share}</span>
-    <span class="panel${visit ? ' lifted' : ''}">${actionsHtml('grid', { pointing })}</span>
+    <span class="panel${visit ? ' lifted' : ''}">${actionsHtml('grid', { pointing, collected })}</span>
   </div>`;
 }
 
-function pin(key, { hovered = false, visit = true, row = false, duration = '', ratio = null, pointing = null } = {}) {
+function pin(key, { hovered = false, visit = true, row = false, duration = '', ratio = null, pointing = null, collected = false, board = true } = {}) {
   const [file, name, natural] = PINS[key];
   return `<article class="pin">
     <div class="media"><img src="media/${file}" alt="" style="--ratio:${ratio ?? natural}" />
       ${duration ? `<span class="duration">${duration}</span>` : ''}
-      ${hovered ? hoverLayer({ visit, pointing }) : ''}
+      ${hovered ? hoverLayer({ visit, pointing, collected, board }) : ''}
     </div>
     <div class="foot"><span class="title">${name}</span>${row ? actionsHtml('row') : ''}<span class="more">${ICONS.dots}</span></div>
   </article>`;
@@ -249,13 +280,14 @@ function windowChrome(url = 'pinterest.com') {
   return `<div class="chrome"><span class="lights"><i></i><i></i><i></i></span><span class="url">${ICONS.lock}${url}</span></div>`;
 }
 
-function browser({ left, top, width, height, zoom = 1, inner }) {
+function browser({ left, top, width, height, zoom = 1, inner, overlay = '' }) {
   return `<div class="window" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px">
     ${windowChrome()}
     <div class="viewport" style="zoom:${zoom}">
       <div class="site-head"><span class="search">${ICONS.search}Search for ideas</span><span class="me"></span></div>
       ${inner}
     </div>
+    ${overlay}
   </div>`;
 }
 
@@ -267,17 +299,28 @@ function heading({ title, sub, top = 56 }) {
   </div>`;
 }
 
+/** A heading beside the product: brand, headline, one line, and a few short points. */
+function sideHeading({ title, sub, points = [], left, top, width }) {
+  return `<div class="head side" style="left:${left}px;top:${top}px;width:${width}px">
+    <span class="brand"><img src="../../public/icon/128.png" alt="" />Pinterest Plus Plus</span>
+    <h1>${title}</h1>
+    <p class="sub">${sub}</p>
+    ${points.length ? `<ul class="points">${points.map(([icon, text]) => `<li>${icon}${text}</li>`).join('')}</ul>` : ''}
+  </div>`;
+}
+
 function toast(message, { left, top }) {
   return placed({ left, top, z: 35 }, `<div class="ppp-root"><div class="ppp-toast" data-visible="true">${message}</div></div>`);
 }
 
 const RANGE = { min: 160, max: 420 };
 
-function gridPanel({ left, top, zoom, value, current }) {
+function gridPanel({ left, top, zoom, value, current, collected = 0 }) {
   // The thumb's centre on the 180px track, so the cursor can rest on it.
   const share = (current - RANGE.min) / (RANGE.max - RANGE.min);
   const thumbX = 8 + 6.5 + (180 - 13) * share;
   return placed({ left, top, zoom }, `<div class="ppp-root"><div class="ppp-grid-shell">
+    <button class="ppp-c-launch" type="button" aria-label="Collection">${UI_ICONS.stack}<span class="ppp-c-launch-count" data-empty="${collected === 0}">${collected}</span></button>
     <section class="ppp-grid-panel" aria-label="Grid tile size" style="position:relative">
       <label class="ppp-range-row"><input class="ppp-range" type="range" min="${RANGE.min}" max="${RANGE.max}" step="4" value="${current}" aria-label="Tile width" /></label>
       <div class="ppp-grid-foot">
@@ -289,6 +332,58 @@ function gridPanel({ left, top, zoom, value, current }) {
       ${cursorAt(thumbX, 15, 16)}
     </section>
   </div></div>`);
+}
+
+function toggle(label, checked) {
+  return `<label class="ppp-c-check"><input type="checkbox" role="switch"${checked ? ' checked' : ''} /><span>${label}</span></label>`;
+}
+
+/**
+ * The collection panel, built from the same class names as the real one and
+ * styled by its real stylesheet. `cursor` names the control the pointer rests on.
+ */
+function collectionPanel({
+  height, total, folderCount, chips, kind = 'all', shapes = [], hues = [],
+  status, statusActions = [], tiles, selected = 0, scanning = null, note = '', cursor = null,
+}) {
+  const point = (name, x, y, size = 26) => (cursor === name ? cursorAt(x, y, size) : '');
+  const tileHtml = tiles.map(([key, { picked = false, video = false } = {}]) => {
+    const [file, title, ratio] = PINS[key];
+    return `<div class="ppp-c-item"><button class="ppp-c-tile" type="button" aria-pressed="${picked}" aria-label="${title}">
+      <img src="media/${file}" alt="" style="aspect-ratio:${ratio}" /><span class="ppp-c-tick">${UI_ICONS.check}</span>${video ? '<span class="ppp-c-badge">Video</span>' : ''}
+    </button></div>`;
+  }).join('');
+  const downloadLabel = selected > 0 ? `Download ${selected} selected` : 'Download all';
+  return `<aside class="ppp-c-panel scene-panel" style="height:${height}px">
+    <header class="ppp-c-head"><div class="ppp-c-head-text"><h2 class="ppp-c-title">Collection</h2><p class="ppp-c-sub">${total} pins · ${folderCount} folders</p></div><button class="ppp-c-icon" type="button" aria-label="Close">${ICONS.close}</button></header>
+    <section class="ppp-c-section ppp-c-card ppp-c-scan">
+      <div class="ppp-c-scan-row">
+        <button class="ppp-c-primary ppp-c-grow" type="button" data-busy="${Boolean(scanning)}" style="position:relative">${scanning ? `${ICONS.close}<span>Stop scanning</span>` : `${UI_ICONS.scan}<span>Scan 100 pins</span>`}${point('scan', 150, 24)}</button>
+        <div class="ppp-c-seg">${[50, 100, 250].map((n) => `<button type="button" aria-pressed="${n === 100}">${n}</button>`).join('')}</div>
+      </div>
+      <div class="ppp-c-checks">${toggle('Skip ads', true)}${toggle('Skip repeats', false)}</div>
+    </section>
+    <nav class="ppp-c-folders">${chips.map(([label, count, pressed, folder]) => `<button class="ppp-c-chip" type="button" aria-pressed="${pressed}">${folder ? UI_ICONS.folder : ''}<span>${label}</span><b>${count}</b></button>`).join('')}<button class="ppp-c-chip" type="button" data-add="true" aria-label="New folder">${UI_ICONS.plus}</button></nav>
+    <section class="ppp-c-section ppp-c-card ppp-c-filters">
+      <div class="ppp-c-filter-line">
+        <div class="ppp-c-seg" data-size="small">${[['all', 'All'], ['image', 'Images'], ['video', 'Videos']].map(([value, label]) => `<button type="button" aria-pressed="${value === kind}">${label}</button>`).join('')}</div>
+        <div class="ppp-c-seg" data-size="small" data-icons="true">${['portrait', 'square', 'landscape'].map((shape) => `<button type="button" aria-pressed="${shapes.includes(shape)}">${SHAPE_ICON[shape]}</button>`).join('')}</div>
+      </div>
+      <div class="ppp-c-swatches">${Object.entries(HUE_SWATCH).map(([hue, paint]) => `<button class="ppp-c-swatch" type="button" aria-pressed="${hues.includes(hue)}" style="position:relative;background:${paint}">${point(`hue:${hue}`, 14, 15, 24)}</button>`).join('')}</div>
+    </section>
+    <div class="ppp-c-status"><span>${status}</span><span class="ppp-c-status-actions">${statusActions.map((label) => `<button class="ppp-c-link" type="button">${label}</button>`).join('')}</span></div>
+    <div class="ppp-c-scroll"><div class="ppp-c-grid" data-selecting="${selected > 0}">${tileHtml}</div></div>
+    <footer class="ppp-c-foot">
+      ${selected > 0 ? `<div class="ppp-c-selection"><span>${selected} selected</span><button class="ppp-c-link" type="button">Clear</button><button class="ppp-c-link" type="button" data-danger="true">Remove</button><select class="ppp-c-select"><option>Move to…</option></select></div>` : ''}
+      <div class="ppp-c-foot-row">
+        <div class="ppp-c-seg"><button type="button" aria-pressed="true">ZIP</button><button type="button" aria-pressed="false">Files</button></div>
+        <button class="ppp-c-primary ppp-c-grow" type="button"${scanning ? ' disabled' : ''} style="position:relative">${ICONS.download}<span>${downloadLabel}</span>${point('download', 168, 24)}</button>
+      </div>
+      <div class="ppp-c-checks">${toggle('Add sources.csv with each pin’s link', true)}</div>
+      ${scanning ? `<div class="ppp-c-busy" role="status"><div class="ppp-c-busy-text"><span>Scanning the page</span><span>${scanning[0]} / ${scanning[1]}</span></div><div class="ppp-c-bar"><span style="width:${(scanning[0] / scanning[1]) * 100}%"></span></div></div>` : ''}
+      ${note ? `<p class="ppp-c-note">${note}</p>` : ''}
+    </footer>
+  </aside>`;
 }
 
 function mediaPicker({ left, top, zoom, eyebrow, items }) {
@@ -319,40 +414,8 @@ function page(title, width, height, body) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8" />
 <title>${title}</title>
 ${FONTS}
-<style>${shadowCss}\n${sceneCss}\nhtml, body { width: ${width}px; height: ${height}px; }</style></head>
+<style>${shadowCss}\n${collectionCss}\n${sceneCss}\nhtml, body { width: ${width}px; height: ${height}px; }</style></head>
 <body>${body}</body></html>`;
-}
-
-const POPUP_CARD = { width: 292, height: 162 };
-
-/**
- * The popup's "Pin buttons" card, cut from the popup's own page and styled by
- * its own stylesheet, isolated in a frame so its class names cannot meet the
- * scene's. A srcdoc document resolves relative links against this scene, so
- * the markup and the stylesheet are the ones the extension ships. The frame's
- * document zooms itself, and the cursor rests on the "Next to ⋯" choice.
- */
-const popupSection = popupHtml.match(/<section class="card" aria-labelledby="placement-heading">[\s\S]*?<\/section>/)?.[0];
-if (!popupSection) throw new Error('Could not read the placement card from the popup');
-
-function popupPlacementCard({ left, top, zoom }) {
-  const section = popupSection
-    .replace(' checked />', ' />')
-    .replace('value="menu" />', 'value="menu" checked />')
-    .replace(/(<p class="note" id="placement-note">)[^<]*/, '$1Always under each pin, beside its ⋯ menu.');
-  const doc = `<!doctype html><html><head>${FONTS}<link rel="stylesheet" href="../../entrypoints/popup/style.css" />
-<style>html,body{margin:0;background:transparent}body{width:${POPUP_CARD.width}px;zoom:${zoom}}body::before{display:none}.popup{padding:0}.card{border-color:transparent;box-shadow:none}</style></head><body><main class="popup">
-${section}</main></body></html>`;
-  const width = Math.round(POPUP_CARD.width * zoom);
-  const height = Math.round(POPUP_CARD.height * zoom);
-  const choice = { x: 250 * zoom, y: 60 * zoom };
-  return `<iframe srcdoc="${doc.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}"
-    style="position:absolute;left:${left}px;top:${top}px;width:${width}px;height:${height}px;border:0;z-index:30;border-radius:${Math.round(12 * zoom)}px;background:#111113;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 30px 80px -20px rgba(0,0,0,.7)"></iframe>
-    ${placed({ left: left + choice.x, top: top + choice.y, z: 40 }, `<span style="position:relative;display:block">${cursorAt(0, 0, 30)}</span>`)}`;
-}
-
-function card(label, inner) {
-  return `<div class="label">${label}</div><div class="card-frame">${inner}</div>`;
 }
 
 const SHOT_W = 1280;
@@ -366,10 +429,22 @@ const GLOW = {
   centre: [[60, 190, 560, 'var(--light)', 0.1], [640, 190, 560, 'var(--light)', 0.1], [300, 120, 680, 'var(--mist)', 0.12]],
 };
 
+/** A small leading icon for a heading's points. */
+const POINT = {
+  scan: UI_ICONS.scan,
+  folder: UI_ICONS.folder,
+  zip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M10 6h1M10 9h1M10 12h1M10 15v2h2v-2z"/></svg>',
+  palette: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="8.5" cy="10" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="15.5" cy="10" r="1"/></svg>',
+  ads: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></svg>',
+  video: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>',
+};
+
+const FOLDER_CHIPS = [['All', 86, false], ['Unfiled', 31, false], ['Moodboard', 24, true, true], ['Kitchen', 18, false, true], ['Packaging', 13, false, true]];
+
 const scenes = {
   'screenshot-1-copy-download.html': page('Save any pin', SHOT_W, SHOT_H, `
     ${backdrop(GLOW.left)}
-    ${heading({ title: 'Save any pin in full quality.', sub: 'Copy and Download sit right on the pin you point at. You get the original file, not a thumbnail.' })}
+    ${heading({ title: 'Save any pin in full quality.', sub: 'Copy, Download and Collect sit right on the pin you point at. You get the original file, not a thumbnail.' })}
     ${browser({
       ...WINDOW, zoom: 1.3,
       inner: columns([
@@ -380,7 +455,59 @@ const scenes = {
     })}
   `),
 
-  'screenshot-2-videos.html': page('Videos too', SHOT_W, SHOT_H, `
+  'screenshot-2-collection.html': page('Your own collection', SHOT_W, SHOT_H, `
+    ${backdrop(GLOW.right)}
+    ${sideHeading({
+      left: 84, top: 196, width: 400,
+      title: 'Collect pins. Save them all at once.',
+      sub: 'One click keeps a pin in your own panel. Sort pins into folders, then download the lot.',
+      points: [[POINT.folder, 'Folders, kept on your device'], [POINT.zip, 'One ZIP, or every file apart'], [POINT.video, 'Videos and full-size originals']],
+    })}
+    ${browser({
+      left: 520, top: 40, width: 728, height: 744, zoom: 1,
+      inner: columns([
+        [pin('vases', { hovered: true, visit: false, collected: true, board: false }), pin('living')],
+        [pin('shapes'), pin('kitchen')],
+        [pin('nook'), pin('bath')],
+        [pin('flowers'), pin('cat')],
+      ]),
+      overlay: collectionPanel({
+        height: 678, total: 86, folderCount: 3, chips: FOLDER_CHIPS,
+        status: '24 pins', statusActions: ['Rename', 'Delete folder'],
+        tiles: [['vases', { picked: true }], ['kitchen', { picked: true }], ['living', { picked: true }], ['nook', { picked: true }], ['shapes', { picked: true }], ['bath'], ['concrete'], ['plants'], ['sketch']],
+        selected: 5, cursor: 'download',
+      }),
+    })}
+  `),
+
+  'screenshot-3-scan-filter.html': page('Scan and filter', SHOT_W, SHOT_H, `
+    ${backdrop(GLOW.left)}
+    ${browser({
+      left: 32, top: 40, width: 728, height: 744, zoom: 1,
+      inner: columns([
+        [pin('granola'), pin('greece')],
+        [pin('sunset'), pin('coat')],
+        [pin('tart'), pin('plants')],
+        [pin('flowers'), pin('living')],
+      ]),
+      overlay: collectionPanel({
+        height: 678, total: 64, folderCount: 3,
+        chips: [['All', 64, true], ['Unfiled', 64, false], ['Moodboard', 0, false, true], ['Kitchen', 0, false, true]],
+        shapes: ['portrait'], hues: ['orange', 'yellow'],
+        status: '18 of 64 shown', statusActions: ['Reset filters'],
+        tiles: [['granola'], ['sunset', { video: true }], ['tart'], ['flowers'], ['coat'], ['greece'], ['living'], ['vases'], ['nook']],
+        scanning: [64, 100], cursor: 'hue:yellow',
+      }),
+    })}
+    ${sideHeading({
+      left: 812, top: 196, width: 400,
+      title: 'Scan the feed. Filter by colour.',
+      sub: 'Scan scrolls for you and gathers up to 250 pins. Then keep just the shape and colours you need.',
+      points: [[POINT.ads, 'Skips ads, and repeats if you like'], [POINT.palette, 'Matches every colour in a picture'], [SHAPE_ICON.portrait, 'Portrait, square or landscape']],
+    })}
+  `),
+
+  'screenshot-4-videos.html': page('Videos too', SHOT_W, SHOT_H, `
     ${backdrop(GLOW.right)}
     ${heading({ title: 'Videos too. Every slide.', sub: 'A carousel opens a picker, and each video saves as a real MP4, even when Pinterest only streams it.' })}
     ${browser({
@@ -397,17 +524,9 @@ const scenes = {
     })}
   `),
 
-  'screenshot-3-placement.html': page('Buttons where you want them', SHOT_W, SHOT_H, `
+  'screenshot-5-grid-slider.html': page('Resize the grid', SHOT_W, SHOT_H, `
     ${backdrop(GLOW.centre)}
-    ${heading({ title: 'Buttons where you want them.', sub: 'Over the pin you point at, or always beside every pin’s ⋯ menu. One switch in the popup.' })}
-    ${placed({ left: 196, top: 246, zoom: 0.92, width: 300 }, card('On the image', pin('coat', { hovered: true, ratio: 4 / 5, pointing: 'copy' })))}
-    ${placed({ left: 512, top: 246, zoom: 0.92, width: 300 }, card(`Next to ${ICONS.dots}`, pin('vases', { row: true, ratio: 4 / 5 })))}
-    ${popupPlacementCard({ left: 852, top: 372, zoom: 1.12 })}
-  `),
-
-  'screenshot-4-grid-slider.html': page('Resize the grid', SHOT_W, SHOT_H, `
-    ${backdrop(GLOW.right)}
-    ${heading({ title: 'Resize the grid in one drag.', sub: 'Smaller tiles to see more at once, bigger ones for the detail. Pinterest reflows the feed itself.' })}
+    ${heading({ title: 'Resize the grid in one drag.', sub: 'Smaller tiles to see more at once, bigger ones for the detail. Your collection is one click away.' })}
     ${browser({
       ...WINDOW, zoom: 1,
       inner: columns([
@@ -418,39 +537,7 @@ const scenes = {
         [pin('granola'), pin('living')],
       ]),
     })}
-    ${gridPanel({ left: 760, top: 652, zoom: 1.7, value: '156px · 5 cols', current: 172 })}
-  `),
-
-  'screenshot-5-copy.html': page('Copy as PNG', SHOT_W, SHOT_H, `
-    ${backdrop(GLOW.left)}
-    ${heading({ title: 'Copy as PNG. Paste anywhere.', sub: 'One click puts the full-size picture, or a video’s first frame, on your clipboard.' })}
-    <div class="window" style="left:${WINDOW.left}px;top:${WINDOW.top}px;width:${WINDOW.width}px;height:${WINDOW.height}px">
-      ${windowChrome('pinterest.com/pin/…')}
-      <div style="display:grid;grid-template-columns:400px 1fr;gap:32px;padding:28px">
-        <div class="media" style="border-radius:22px"><img src="media/${PINS.kitchen[0]}" alt="" style="--ratio:${PINS.kitchen[2]}" /></div>
-        <div style="padding-top:2px">
-          <div style="display:flex;align-items:center;gap:8px">
-            ${actionsHtml('closeup', { pointing: 'copy', cursorSize: 30 })}
-            <span class="more" style="width:40px;height:40px;border-radius:50%;background:#efeef1">${ICONS.dots}</span>
-            <span style="flex:1"></span>
-            <span class="save" style="position:static;height:42px">Save</span>
-          </div>
-          <div style="margin-top:24px;font-size:28px;font-weight:600;letter-spacing:-.03em">Japandi kitchen</div>
-          <div style="margin-top:10px;color:#6f6a75;font-size:15px;line-height:1.55">Oak shelves, handmade pottery and soft daylight.</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:22px">
-            <span class="me" style="width:36px;height:36px;background-image:url(media/${PINS.vases[0]})"></span>
-            <div><div style="font-size:14px;font-weight:600">Studio Mira</div><div style="color:#6f6a75;font-size:13px">12.4k followers</div></div>
-          </div>
-          <div style="margin:30px 0 12px;font-size:16px;font-weight:600">More like this</div>
-          <div class="cols" style="gap:12px">
-            <div class="col"><div class="media" style="border-radius:14px"><img src="media/${PINS.vases[0]}" alt="" style="--ratio:1" /></div></div>
-            <div class="col"><div class="media" style="border-radius:14px"><img src="media/${PINS.nook[0]}" alt="" style="--ratio:1" /></div></div>
-            <div class="col"><div class="media" style="border-radius:14px"><img src="media/${PINS.plants[0]}" alt="" style="--ratio:1" /></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    ${toast('Image copied', { left: 572, top: 736 })}
+    ${gridPanel({ left: 650, top: 652, zoom: 1.7, value: '156px · 5 cols', current: 172, collected: 86 })}
   `),
 };
 
@@ -471,7 +558,7 @@ const promoSmall = page('Small promo', 440, 280, `
   ${heroKey({ left: 166, top: 30, size: 108 })}
   <div style="position:absolute;left:0;right:0;top:158px;z-index:5;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
     <div style="font-size:25px;line-height:1.05;font-weight:700;letter-spacing:-.04em;color:#fff">Pinterest Plus Plus</div>
-    <div style="color:#8e8e96;font-size:14px;line-height:1.4">Save pins and videos in full quality</div>
+    <div style="color:#8e8e96;font-size:14px;line-height:1.4">Save pins, videos and whole boards</div>
   </div>
 `);
 
@@ -481,8 +568,8 @@ const promoMarquee = page('Marquee', 1400, 560, `
   ${glows([[820, 60, 560, 'var(--light)', 0.12], [900, 200, 420, 'var(--mist)', 0.1]])}
   <div style="position:absolute;left:104px;top:0;bottom:0;width:560px;z-index:5;display:flex;flex-direction:column;justify-content:center;gap:20px">
     <span class="brand" style="align-self:flex-start"><img src="../../public/icon/128.png" alt="" />Pinterest Plus Plus</span>
-    <h1 style="font-size:68px;font-weight:700">Save any pin.<br />Full quality.</h1>
-    <p class="sub" style="font-size:20px;max-width:470px;text-wrap:pretty">Images, videos and every carousel slide in one click, and a grid you can resize.</p>
+    <h1 style="font-size:68px;font-weight:700">Save any pin.<br />Or all of them.</h1>
+    <p class="sub" style="font-size:20px;max-width:470px;text-wrap:pretty">Full-quality images, videos and every carousel slide in one click. Collect pins into folders and download them as one ZIP.</p>
   </div>
   ${heroKey({ left: 880, top: 110, size: 330 })}
 `);
@@ -588,10 +675,10 @@ await copyFile(iconSrc, join(assetsDir, 'icon-128.png'));
 
 const shots = [
   ['screenshot-1-copy-download.html', 'screenshot-1-copy-download.png', SHOT_W, SHOT_H],
-  ['screenshot-2-videos.html', 'screenshot-2-videos.png', SHOT_W, SHOT_H],
-  ['screenshot-3-placement.html', 'screenshot-3-placement.png', SHOT_W, SHOT_H],
-  ['screenshot-4-grid-slider.html', 'screenshot-4-grid-slider.png', SHOT_W, SHOT_H],
-  ['screenshot-5-copy.html', 'screenshot-5-copy.png', SHOT_W, SHOT_H],
+  ['screenshot-2-collection.html', 'screenshot-2-collection.png', SHOT_W, SHOT_H],
+  ['screenshot-3-scan-filter.html', 'screenshot-3-scan-filter.png', SHOT_W, SHOT_H],
+  ['screenshot-4-videos.html', 'screenshot-4-videos.png', SHOT_W, SHOT_H],
+  ['screenshot-5-grid-slider.html', 'screenshot-5-grid-slider.png', SHOT_W, SHOT_H],
   ['promo-small.html', 'promo-small-440x280.png', 440, 280],
   ['promo-marquee.html', 'promo-marquee-1400x560.png', 1400, 560],
 ];

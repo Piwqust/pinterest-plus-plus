@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createMediaActionHost, type MediaAction } from '../shared/media-action-host';
+import { createMediaActionHost, type HostAction } from '../shared/media-action-host';
 import { RowActionManager } from '../shared/row-action-manager';
 
 /**
@@ -51,7 +51,7 @@ function settle(): Promise<void> {
 
 describe('RowActionManager', () => {
   let manager: RowActionManager | null = null;
-  let ran: Array<{ action: MediaAction; pin: string | null }> = [];
+  let ran: Array<{ action: HostAction; pin: string | null }> = [];
   let sizes: number[] = [];
 
   const build = () => new RowActionManager((resolvePin, size) => {
