@@ -155,7 +155,7 @@ export class CollectionPanel {
     this.launcher.setAttribute('aria-expanded', 'false');
     this.launcher.setAttribute('aria-controls', 'ppp-collection');
     this.launcher.title = 'Collection';
-    this.launcher.innerHTML = ICONS.stack;
+    this.launcher.innerHTML = ICONS.collection;
     this.launchCount = element('span', 'ppp-c-launch-count');
     this.launchCount.setAttribute('aria-hidden', 'true');
     this.launcher.append(this.launchCount);
@@ -772,7 +772,7 @@ export class CollectionPanel {
       : inFolder === 0
         ? ['This folder is empty', 'Select pins in another folder and move them here, or scan while this folder is open.']
         : ['No pins match', 'Try fewer filters. Colours are measured a moment after a pin is added.'];
-    this.empty.innerHTML = ICONS.stack;
+    this.empty.innerHTML = ICONS.collection;
     this.empty.append(element('strong', '', title), element('span', '', body));
   }
 

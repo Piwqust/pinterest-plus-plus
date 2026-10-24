@@ -51,7 +51,7 @@ if (!collectionMatch) throw new Error('Could not read COLLECTION_CSS');
 const collectionCss = collectionMatch[1];
 /** The extension's own icons, read from its source rather than redrawn. */
 const UI_ICONS = Object.fromEntries([...src.matchAll(/^\s+(\w+): '(<svg[^']*)',?$/gm)].map(([, name, svg]) => [name, svg]));
-for (const name of ['collect', 'collected', 'stack', 'scan', 'folder', 'plus', 'check', 'external']) {
+for (const name of ['collect', 'collected', 'collection', 'scan', 'folder', 'plus', 'check', 'external']) {
   if (!UI_ICONS[name]) throw new Error(`Could not read the ${name} icon`);
 }
 const modelSrc = await readFile(join(root, 'shared', 'collection.ts'), 'utf8');
@@ -178,7 +178,7 @@ const sceneCss = `
   .ppp-root .ppp-toast { position: static; transform: none; opacity: 1; }
   .ppp-root .ppp-media-picker { position: static; box-shadow: 0 0 0 1px rgba(0, 0, 0, .04), 0 40px 80px -24px rgba(0, 0, 0, .55); }
   .ppp-root .ppp-grid-shell { position: static; opacity: 1; }
-  .ppp-root .ppp-grid-panel, .ppp-root .ppp-c-launch { box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .45); }
+  .ppp-root .ppp-grid-shell { border-radius: 9px; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .45); }
   .cursor { position: absolute; z-index: 40; display: block; pointer-events: none; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .35)); }
   .cursor svg { display: block; width: 100% !important; height: 100% !important; }
 
@@ -320,7 +320,7 @@ function gridPanel({ left, top, zoom, value, current, collected = 0 }) {
   const share = (current - RANGE.min) / (RANGE.max - RANGE.min);
   const thumbX = 8 + 6.5 + (180 - 13) * share;
   return placed({ left, top, zoom }, `<div class="ppp-root"><div class="ppp-grid-shell">
-    <button class="ppp-c-launch" type="button" aria-label="Collection">${UI_ICONS.stack}<span class="ppp-c-launch-count" data-empty="${collected === 0}">${collected}</span></button>
+    <button class="ppp-c-launch" type="button" aria-label="Collection">${UI_ICONS.collection}<span class="ppp-c-launch-count" data-empty="${collected === 0}">${collected}</span></button>
     <section class="ppp-grid-panel" aria-label="Grid tile size" style="position:relative">
       <label class="ppp-range-row"><input class="ppp-range" type="range" min="${RANGE.min}" max="${RANGE.max}" step="4" value="${current}" aria-label="Tile width" /></label>
       <div class="ppp-grid-foot">

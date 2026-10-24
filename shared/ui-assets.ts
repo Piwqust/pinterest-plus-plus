@@ -8,7 +8,8 @@ export const ICONS = {
   larger: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>',
   collect: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z"/><path d="M12 7.5v5M9.5 10h5"/></svg>',
   collected: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ppp-fill" d="M6 4h12v16l-6-4-6 4z"/><path class="ppp-mark" d="m9.2 10 2 2 3.6-3.6"/></svg>',
-  stack: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="9" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="15" width="7" height="5" rx="1.5"/></svg>',
+  /** A stack of the bookmarks the collect button drops on pins. */
+  collection: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10v11l-5-3.2L5 21V10a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3z"/><path d="M10 3h6a3 3 0 0 1 3 3v12"/></svg>',
   scan: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M12 8v8m0 0 3-3m-3 3-3-3"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h3.5l2 2H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
@@ -93,11 +94,11 @@ export const SHADOW_CSS = `
   .ppp-action .ppp-fill { fill: currentColor; }
   .ppp-action .ppp-mark { stroke: var(--ppp-surface); stroke-width: 2.2; }
   .ppp-action[data-collected="true"] { color: var(--ppp-ink); }
-  /* The corner holds the collection's launcher and, beside it at the same
-     height, the grid panel. They rest dimmed together and wake together. */
+  /* The corner is one card: the collection's segment on the left, the grid
+     panel on the right, split by a hairline. They rest dimmed together. */
   .ppp-grid-shell {
     position: fixed; right: 14px; bottom: 14px; pointer-events: none;
-    display: flex; align-items: stretch; gap: 8px;
+    display: flex; align-items: stretch;
     opacity: .7; transition: opacity 140ms ease-out;
   }
   .ppp-grid-shell:hover, .ppp-grid-shell:focus-within,

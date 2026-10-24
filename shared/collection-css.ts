@@ -4,9 +4,8 @@
  * pins. It is the extension's own workspace laid over the page, not a control
  * that has to blend into Pinterest's.
  *
- * Its launcher is the exception: it sits in the corner beside the grid slider
- * and wears the slider's light tokens, so the two read as one pair. Only its
- * count keeps the graphite, as a hint of the panel it opens.
+ * Its launcher is the exception: it is the left segment of the light corner
+ * card that also holds the grid slider, so the two read as one control.
  */
 export const COLLECTION_CSS = `
   .ppp-c-panel {
@@ -34,23 +33,25 @@ export const COLLECTION_CSS = `
   .ppp-c-panel button { -webkit-tap-highlight-color: transparent; }
   .ppp-c-panel :focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
 
-  /* A square key beside the grid panel, as tall as it, with the count on its corner. */
+  /* The left segment of the corner card: the icon over the count, like a
+     toolbar button. Its right edge is the grid panel's own left border. */
   .ppp-c-launch {
-    appearance: none; position: relative; flex: 0 0 auto; width: 52px; margin: 0; padding: 0;
-    display: grid; place-items: center; border: 1px solid var(--ppp-border); border-radius: 9px;
+    appearance: none; flex: 0 0 auto; min-width: 54px; margin: 0; padding: 0 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    border: 1px solid var(--ppp-border); border-right: 0; border-radius: 9px 0 0 9px;
     color: var(--ppp-ink); background: var(--ppp-surface); cursor: pointer; pointer-events: auto;
-    transition: background 140ms ease-out, transform 140ms ease-out;
+    transition: background 140ms ease-out;
   }
-  .ppp-c-launch svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-  .ppp-c-launch:hover { background: var(--ppp-subtle); }
-  .ppp-c-launch:active { transform: scale(.96); }
-  .ppp-c-launch:focus-visible { outline: 2px solid var(--ppp-focus); outline-offset: 2px; }
+  .ppp-c-launch + .ppp-grid-panel { border-radius: 0 9px 9px 0; }
+  .ppp-c-launch svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; transition: transform 140ms ease-out; }
+  .ppp-c-launch:hover { background: #f4f4f3; }
+  .ppp-c-launch:active svg { transform: scale(.92); }
+  .ppp-c-launch:focus-visible { outline: 2px solid var(--ppp-focus); outline-offset: -3px; }
   .ppp-c-launch-count {
-    position: absolute; top: -8px; right: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
-    display: grid; place-items: center; color: #ffffff; background: #0b0b0d; box-shadow: 0 0 0 2px var(--ppp-surface);
-    font-size: 11px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+    color: var(--ppp-ink); font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; font-weight: 600; line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em;
   }
-  .ppp-c-launch-count[data-empty="true"] { display: none; }
+  .ppp-c-launch-count[data-empty="true"] { color: var(--ppp-muted); }
   .ppp-layer[data-collection-open="true"] .ppp-grid-shell { visibility: hidden; }
 
   .ppp-c-panel {
