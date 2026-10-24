@@ -2,7 +2,7 @@
 
 Всё, что можно подготовить без аккаунта Google, уже лежит в репозитории. Ниже — шаги, которые может сделать только владелец аккаунта.
 
-ZIP: `.output/pinterest-plus-plus-1.0.10-chrome.zip` после `npm run zip`.  
+ZIP: `.output/pinterest-plus-plus-1.0.11-chrome.zip` после `npm run zip`.  
 Тексты: `store/LISTING.md`.  
 Картинки: `store/assets/`.  
 Политика: https://piwqust.github.io/pinterest-plus-plus/ (`store/privacy.html`, копия в `docs/index.html`).
@@ -15,12 +15,13 @@ ZIP: `.output/pinterest-plus-plus-1.0.10-chrome.zip` после `npm run zip`.
 
 - **1.0.9:** скачивание видео идёт по данным пина из Pinterest и при необходимости собирает файл из HLS-потока локально; панель над пином больше не мигает; в попапе появилась настройка «Pin buttons» (на картинке или рядом с ⋯).
 - **1.0.10:** новый знак (графитовая клавиша с белым «++») и вся графика листинга; политика и обоснования в листинге называют обе настройки, которые хранит расширение: ширину плитки и место кнопок.
+- **1.0.11:** попап в стиле нового знака: тёмный графит, белый свет, шрифт Inter внутри пакета; скриншот 3 показывает новую карточку «Pin buttons».
 
-Разрешения не менялись; в манифесте изменились только версия и иконки.
+Разрешения не менялись; в манифесте изменились только версия и иконки. В пакете добавился файл шрифта `fonts/inter-latin.woff2`, сетевых запросов он не добавляет.
 
 1. `npm test`, `npm run typecheck`, `npm run zip`.
 2. **Политика конфиденциальности — до Submit.** С 1.0.8 изменились два раздела: «Website content, on your action» (расширение спрашивает у `pinterest.com` список медиа пина и может собрать видео из потока внутри Chrome) и «Settings stored in Chrome» (две настройки вместо одной). GitHub Pages публикует сайт из `docs/` ветки `master`, поэтому новый текст появится только после того, как эта ветка попадёт в `master` на GitHub. Проверьте https://piwqust.github.io/pinterest-plus-plus/ в инкогнито: должны быть «Effective date: 23 October 2026», «For Download it first asks pinterest.com…» и «The extension stores two settings…».
-3. Dashboard → ваш item → **Package** → **Upload new package** → `.output/pinterest-plus-plus-1.0.10-chrome.zip`. Версия в манифесте должна быть выше опубликованной.
+3. Dashboard → ваш item → **Package** → **Upload new package** → `.output/pinterest-plus-plus-1.0.11-chrome.zip`. Версия в манифесте должна быть выше опубликованной.
 4. **Store listing**: замените подробное описание английским блоком из `LISTING.md` (добавлена фраза про размещение кнопок рядом с ⋯). Графика обновлена целиком, поэтому замените всё из `store/assets/`:
    - **иконку** `icon-128.png` (новый знак: графитовая клавиша с белым «++»; она же в пакете расширения);
    - **все пять скриншотов**: удалите старые и загрузите по порядку `screenshot-1-copy-download.png`, `screenshot-2-videos.png`, `screenshot-3-placement.png`, `screenshot-4-grid-slider.png`, `screenshot-5-copy.png`;
@@ -64,7 +65,7 @@ npm run typecheck
 npm run zip
 ```
 
-Загружайте `.output/pinterest-plus-plus-1.0.10-chrome.zip`. Это production MV3-пакет, не исходники.
+Загружайте `.output/pinterest-plus-plus-1.0.11-chrome.zip`. Это production MV3-пакет, не исходники.
 
 ## 4. New item
 
